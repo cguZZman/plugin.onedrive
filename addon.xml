@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon id="plugin.onedrive" name="OneDrive" version="1.0.0" provider-name="Carlos Guzman (cguZZman)">
+    <requires>
+        <import addon="xbmc.python" version="2.1.0"/>
+    </requires>
+    <extension point="xbmc.python.pluginsource" library="addon.py">
+        <provides>image audio video</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+    	<platform>all</platform>
+        <summary>OneDrive integration for KODI</summary>
+        <description>Play all your media from OneDrive</description>
+    </extension>
+</addon>
