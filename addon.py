@@ -182,7 +182,7 @@ elif action[0] == 'add_account':
                 progress_dialog.update(30, 'Retrieving credentials...')
                 onedrive.login(json['code']);
                 progress_dialog.update(70, 'Retrieving drive information...')
-                info = onedrive.get('/drive', params=extra_parameters )
+                info = onedrive.get('/drive')
                 if info['id'] in onedrives:
                     progress_dialog.close()
                     dialog.ok(addonname, 'This account already exist.')
