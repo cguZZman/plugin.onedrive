@@ -117,7 +117,7 @@ class OneDrive:
             print e
             print url
             if self.retry_times < 1:
-                if e.code == 401:
+                if e.code == 401 or e.code == 404:
                     self.login()
                 self.retry_times += 1
                 return self.request(method, path, params, raw_url)
