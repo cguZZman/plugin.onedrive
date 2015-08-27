@@ -41,7 +41,10 @@ addon = xbmcaddon.Addon()
 addonname = addon.getAddonInfo('name')
 
 action = args.get('action', None)
-content_type = args.get('content_type')[0]
+try:
+    content_type = args.get('content_type')[0]
+except:
+    content_type = 'video'
 extra_parameters = {'expand': 'thumbnails'}
 dialog = xbmcgui.Dialog();
 progress_dialog = xbmcgui.DialogProgress() 
@@ -118,7 +121,9 @@ def process_files(files, driveid):
                 list_item.setIconImage(thumbnails['large']['url'])
         if not url is None:
             xbmcplugin.addDirectoryItem(addon_handle, url, list_item, is_folder)
-            
+    if '@odata.nextLink' in files:
+        process_files(onedrives[driveid].get(files['@odata.nextLink'], raw_url=True), driveid)
+
 def export_folder(name, item_id, driveid, destination_folder):
     parent_folder = os.path.join(destination_folder, name)
     if not os.path.exists(parent_folder):
@@ -178,24 +183,36 @@ elif action[0] == 'add_account':
         progress_dialog.create(addonname, 'Verifying authentication...')
         json = onedrive.finish_signin(pin)
         if json['success']:
+            loginFailed = False
             try:
                 progress_dialog.update(30, 'Retrieving credentials...')
                 onedrive.login(json['code']);
-                progress_dialog.update(70, 'Retrieving drive information...')
-                info = onedrive.get('/drive')
-                if info['id'] in onedrives:
+            except Exception as e:
+                dialog.ok(addonname, 'Unable to login:', str(e), 'Please try again.')
+                loginFailed = True
+            if not loginFailed:
+                try:
+                    progress_dialog.update(70, 'Retrieving drive information...')
+                    info = onedrive.get('/drive')
+                except Exception as e:
+                    info = None
+                    dialog.ok(addonname, 'Unable to retrieve the drive information:', str(e), 'Please try again.')
+                if info is None:
+                    progress_dialog.close()
+                elif info['id'] in onedrives:
                     progress_dialog.close()
                     dialog.ok(addonname, 'This account already exist.')
                 else:
-                    progress_dialog.update(90, 'Adding account...')
-                    onedrive.driveid = info['id']
-                    onedrive.name = info['owner']['user']['displayName']
-                    config.add_section(onedrive.driveid)
-                    save_onedrive_config(config, onedrive)
-                    progress_dialog.close()
-                xbmc.executebuiltin('Container.Refresh')
-            except Exception as e:
-                dialog.ok(addonname, 'Unable to login:', str(e), 'Please try again.')
+                    try:
+                        progress_dialog.update(90, 'Adding account...')
+                        onedrive.driveid = info['id']
+                        onedrive.name = str(info['owner']['user']['displayName'])
+                        config.add_section(onedrive.driveid)
+                        save_onedrive_config(config, onedrive)
+                        progress_dialog.close()
+                    except Exception as e:
+                        dialog.ok(addonname, 'Unable to add account:', str(e), 'Please try again.')
+            xbmc.executebuiltin('Container.Refresh')
         else:
             progress_dialog.close()
             dialog.ok(addonname, 'It looks like you did not complete the sign-in process.', 'Please try again.')

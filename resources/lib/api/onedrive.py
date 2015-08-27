@@ -91,7 +91,7 @@ class OneDrive:
             path = "/" + path
         return path
     
-    def request(self, method, path, params=None, **kwargs):
+    def request(self, method, path, params=None, raw_url=False):
         access_token = self.access_token
         if access_token is None:
             raise Exception('request', 'Not logged in.')
@@ -101,20 +101,26 @@ class OneDrive:
         param_str = urllib.urlencode(params)
         
         try:
+            url = path
+            if not raw_url:
+                url = self._api_url+self._make_path(path)
             if method == 'get':
-                response = urllib2.urlopen(self._api_url+self._make_path(path) + '?' + param_str).read()
+                if not raw_url:
+                    url = url + '?' + param_str
+                response = urllib2.urlopen(url).read()
             else:
-                response = urllib2.urlopen(self._api_url+self._make_path(path), param_str).read()
+                response = urllib2.urlopen(url, param_str).read()
             jsonResponse = json.loads(response)
             self.retry_times = 0
             return jsonResponse
         except urllib2.URLError, e:
             print e
+            print url
             if self.retry_times < 1:
                 if e.code == 401:
                     self.login()
                 self.retry_times += 1
-                return self.request(method, path, params)
+                return self.request(method, path, params, raw_url)
             else:
                 raise e
 
