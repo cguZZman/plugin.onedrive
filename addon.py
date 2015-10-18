@@ -49,7 +49,14 @@ extra_parameters = {'expand': 'thumbnails'}
 dialog = xbmcgui.Dialog();
 progress_dialog = xbmcgui.DialogProgress() 
 root_url = '/drive/root/children'
-config_path = xbmc.translatePath('special://home/onedrive.ini')
+old_config_path = xbmc.translatePath('special://home/onedrive.ini')
+config_path = utils.Utils.unicode(xbmc.translatePath(addon.getAddonInfo('profile'))) + '/onedrive.ini'
+if os.path.exists(old_config_path) and not os.path.exists(config_path):
+    try:
+        shutil.move(old_config_path, config_path)
+    except:
+        dialog.ok(addonname, addon.getLocalizedString(30028) % config_path)
+
 onedrives = {}
 
 config = ConfigParser.ConfigParser()
