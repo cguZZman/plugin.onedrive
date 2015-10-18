@@ -33,3 +33,11 @@ class Utils:
         if key in dictionary:
             return dictionary[key]
         return None
+    @staticmethod
+    def unicode(txt):
+        if isinstance (txt,str):
+            txt = txt.decode("utf-8")
+        return u'%s' % (txt)
+    @staticmethod
+    def str(txt):
+        return Utils.unicode(txt).encode("utf-8")

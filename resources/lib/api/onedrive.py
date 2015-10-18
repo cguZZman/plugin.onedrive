@@ -24,6 +24,7 @@ import urllib
 import urllib2
 import json
 import re
+from resources.lib.api import utils
 
 class OneDrive:
     _login_url = 'https://login.live.com/oauth20_token.srf'
@@ -57,7 +58,7 @@ class OneDrive:
         response = urllib2.urlopen(self._login_url, urllib.urlencode(data)).read()
         jsonResponse = json.loads(response)
         if 'error' in jsonResponse:
-            raise Exception('login', str(jsonResponse['error']), str(jsonResponse['error_description']))
+            raise Exception('login', utils.Utils.str(jsonResponse['error']), utils.Utils.str(jsonResponse['error_description']))
         else:
             self.access_token = jsonResponse['access_token']
             self.refresh_token = jsonResponse['refresh_token']
@@ -91,25 +92,29 @@ class OneDrive:
             path = "/" + path
         return path
     
-    def request(self, method, path, params=None, raw_url=False):
+    def get_url_params(self, params=None):
         access_token = self.access_token
         if access_token is None:
             raise Exception('request', 'Not logged in.')
         if params is None:
             params = {}
         params['access_token'] = access_token
-        param_str = urllib.urlencode(params)
-        
+        return urllib.urlencode(params)
+    
+    def get_url(self, method, path, params=None):
+        url = self._api_url+self._make_path(path)
+        if method == 'get':
+            url = url + '?' + params
+        return url
+    
+    def request(self, method, path, params=None, raw_url=False):
         try:
-            url = path
-            if not raw_url:
-                url = self._api_url+self._make_path(path)
+            url_params = self.get_url_params(params)
+            url = self.get_url(method, path, url_params) if not raw_url else path
             if method == 'get':
-                if not raw_url:
-                    url = url + '?' + param_str
                 response = urllib2.urlopen(url).read()
             else:
-                response = urllib2.urlopen(url, param_str).read()
+                response = urllib2.urlopen(url, url_params).read()
             jsonResponse = json.loads(response)
             self.retry_times = 0
             return jsonResponse

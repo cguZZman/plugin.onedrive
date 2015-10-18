@@ -97,25 +97,29 @@ def set_video_info(list_item, data):
     
 def process_files(files, driveid):
     for f in files['value']:
+        item_id = f['id']
+        file_name = utils.Utils.str(f['name'])
         is_folder = 'folder' in f
         url = None
-        list_item = xbmcgui.ListItem(f['name'])
-        extension = utils.Utils.get_extension(f['name']);
+        list_item = xbmcgui.ListItem(file_name)
+        extension = utils.Utils.get_extension(file_name);
         if is_folder:
-            params = {'action':'open_folder', 'content_type': content_type, 'item_id': f['id'], 'driveid': driveid}
+            params = {'action':'open_folder', 'content_type': content_type, 'item_id': item_id, 'driveid': driveid}
             url = base_url + '?' + urllib.urlencode(params)
             if content_type == 'audio' or content_type == 'video':
                 params['action'] = 'export_folder'
-                list_item.addContextMenuItems([('Add to library (export .strm)...', 'RunPlugin('+base_url + '?' + urllib.urlencode(params)+')')])
+                list_item.addContextMenuItems([(addon.getLocalizedString(30004), 'RunPlugin('+base_url + '?' + urllib.urlencode(params)+')')])
         elif (('video' in f or extension == 'mkv') and content_type == 'video') or ('audio' in f and content_type == 'audio'):
-            params = {'action':'play', 'content_type': content_type, 'item_id': f['id'], 'driveid': driveid}
+            params = {'action':'play', 'content_type': content_type, 'item_id': item_id, 'driveid': driveid}
             url = base_url + '?' + urllib.urlencode(params)
             set_info = set_audio_info if content_type == 'audio' else set_video_info
             set_info(list_item, f)
             list_item.setProperty('IsPlayable', 'true')
         elif ('image' in f or 'photo' in f) and content_type == 'image':
             params = {'action':'show_image', 'content_type': content_type, 'url': f['@content.downloadUrl']}
-            url = base_url + '?' + urllib.urlencode(params)
+            list_item.addContextMenuItems([(addon.getLocalizedString(30005), 'RunPlugin('+base_url + '?' + urllib.urlencode(params)+')')], True)
+            url = f['@content.downloadUrl']
+            list_item.setInfo('pictures', {'size': f['size']})
             if 'thumbnails' in f and len(f['thumbnails']) > 0:
                 thumbnails = f['thumbnails'][0]
                 list_item.setIconImage(thumbnails['large']['url'])
@@ -139,7 +143,7 @@ def export_folder(name, item_id, driveid, destination_folder):
             break
         is_folder = 'folder' in f
         extension = utils.Utils.get_extension(f['name']);
-        name = f['name'].encode('ascii', 'ignore')
+        name = utils.Utils.unicode(f['name']).encode('ascii', 'ignore')
         if is_folder:
             export_folder(name, f['id'], driveid, parent_folder)
         elif (('video' in f or extension == 'mkv') and content_type == 'video') or ('audio' in f and content_type == 'audio'):
@@ -160,118 +164,120 @@ def remove_readonly(fn, path, excinfo):
     elif fn is os.remove:
         os.chmod(path, stat.S_IWRITE)
         os.remove(path)
-
-if action is None:
-    for driveid in onedrives:
-        list_item = xbmcgui.ListItem(onedrives[driveid].name)
-        params = {'action':'open_drive', 'content_type': content_type, 'driveid': onedrives[driveid].driveid}
+try:
+    if action is None:
+        for driveid in onedrives:
+            list_item = xbmcgui.ListItem(onedrives[driveid].name)
+            params = {'action':'open_drive', 'content_type': content_type, 'driveid': onedrives[driveid].driveid}
+            url = base_url + '?' + urllib.urlencode(params)
+            params = {'action':'remove_account', 'content_type': content_type, 'driveid': onedrives[driveid].driveid}
+            list_item.addContextMenuItems([(addon.getLocalizedString(30007), 'RunPlugin('+base_url + '?' + urllib.urlencode(params)+')')])
+            xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
+        list_item = xbmcgui.ListItem(addon.getLocalizedString(30006))
+        params = {'action':'add_account', 'content_type': content_type}
         url = base_url + '?' + urllib.urlencode(params)
-        params = {'action':'remove_account', 'content_type': content_type, 'driveid': onedrives[driveid].driveid}
-        list_item.addContextMenuItems([('Remove Account...', 'RunPlugin('+base_url + '?' + urllib.urlencode(params)+')')])
-        xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
-    list_item = xbmcgui.ListItem('Add an account...')
-    params = {'action':'add_account', 'content_type': content_type}
-    url = base_url + '?' + urllib.urlencode(params)
-    xbmcplugin.addDirectoryItem(addon_handle, url, list_item)
-    xbmcplugin.endOfDirectory(addon_handle, True)
-elif action[0] == 'add_account':
-    progress_dialog.create(addonname, 'Connecting with server, please wait...')
-    onedrive = OneDrive(addon.getSetting('client_id'))
-    pin = onedrive.begin_signin()
-    progress_dialog.close()
-    if dialog.yesno(addonname, 'Open your browser and go to: http://onedrive.daro.mx','Enter this code and follow instructions: ' + pin, None, 'Cancel', 'Done. Sign me in!'):
-        progress_dialog.create(addonname, 'Verifying authentication...')
-        json = onedrive.finish_signin(pin)
-        if json['success']:
-            loginFailed = False
-            try:
-                progress_dialog.update(30, 'Retrieving credentials...')
-                onedrive.login(json['code']);
-            except Exception as e:
-                dialog.ok(addonname, 'Unable to login:', str(e), 'Please try again.')
-                loginFailed = True
-            if not loginFailed:
+        xbmcplugin.addDirectoryItem(addon_handle, url, list_item)
+        xbmcplugin.endOfDirectory(addon_handle, True)
+    elif action[0] == 'add_account':
+        progress_dialog.create(addonname, addon.getLocalizedString(30008))
+        onedrive = OneDrive(addon.getSetting('client_id'))
+        pin = onedrive.begin_signin()
+        progress_dialog.close()
+        if dialog.yesno(addonname, addon.getLocalizedString(30009),addon.getLocalizedString(30010) % pin, None, addon.getLocalizedString(30011), addon.getLocalizedString(30012)):
+            progress_dialog.create(addonname, addon.getLocalizedString(30013))
+            json = onedrive.finish_signin(pin)
+            if json['success']:
+                loginFailed = False
                 try:
-                    progress_dialog.update(70, 'Retrieving drive information...')
-                    info = onedrive.get('/drive')
+                    progress_dialog.update(30, addon.getLocalizedString(30014))
+                    onedrive.login(json['code']);
                 except Exception as e:
-                    info = None
-                    dialog.ok(addonname, 'Unable to retrieve the drive information:', str(e), 'Please try again.')
-                if info is None:
-                    progress_dialog.close()
-                elif info['id'] in onedrives:
-                    progress_dialog.close()
-                    dialog.ok(addonname, 'This account already exist.')
-                else:
+                    dialog.ok(addonname, addon.getLocalizedString(30015), utils.Utils.str(e), addon.getLocalizedString(30016))
+                    loginFailed = True
+                if not loginFailed:
                     try:
-                        progress_dialog.update(90, 'Adding account...')
-                        onedrive.driveid = info['id']
-                        onedrive.name = str(info['owner']['user']['displayName'])
-                        config.add_section(onedrive.driveid)
-                        save_onedrive_config(config, onedrive)
-                        progress_dialog.close()
+                        progress_dialog.update(70, addon.getLocalizedString(30017))
+                        info = onedrive.get('/drive')
                     except Exception as e:
-                        dialog.ok(addonname, 'Unable to add account:', str(e), 'Please try again.')
-            xbmc.executebuiltin('Container.Refresh')
+                        info = None
+                        dialog.ok(addonname, addon.getLocalizedString(30018), utils.Utils.str(e), addon.getLocalizedString(30016))
+                    if info is None:
+                        progress_dialog.close()
+                    elif info['id'] in onedrives:
+                        progress_dialog.close()
+                        dialog.ok(addonname, addon.getLocalizedString(30019))
+                    else:
+                        try:
+                            progress_dialog.update(90, addon.getLocalizedString(30020))
+                            onedrive.driveid = info['id']
+                            onedrive.name = utils.Utils.str(info['owner']['user']['displayName'])
+                            config.add_section(onedrive.driveid)
+                            save_onedrive_config(config, onedrive)
+                            progress_dialog.close()
+                        except Exception as e:
+                            dialog.ok(addonname, addon.getLocalizedString(30021), utils.Utils.str(e), addon.getLocalizedString(30016))
+                xbmc.executebuiltin('Container.Refresh')
+            else:
+                progress_dialog.close()
+                dialog.ok(addonname, addon.getLocalizedString(30022), addon.getLocalizedString(30016))
+    elif action[0] == 'remove_account':
+        driveid = args.get('driveid')[0]
+        if dialog.yesno(addonname, addon.getLocalizedString(30023) % config.get(driveid, 'name'), None):
+            config.remove_section(driveid)
+            with open(config_path, 'wb') as configfile:
+                config.write(configfile)
+        xbmc.executebuiltin('Container.Refresh')
+    elif action[0] == 'open_drive':
+        driveid = args.get('driveid')[0]
+        files = onedrives[driveid].get(root_url, params=extra_parameters)
+        process_files(files, driveid)
+        xbmcplugin.endOfDirectory(addon_handle)
+    elif action[0] == 'open_folder':
+        driveid = args.get('driveid')[0]
+        item_id = args.get('item_id')[0]
+        files = onedrives[driveid].get('/drive/items/'+item_id+'/children', params=extra_parameters )
+        process_files(files, driveid)
+        xbmcplugin.endOfDirectory(addon_handle)
+    elif action[0] == 'export_folder':
+        driveid = args.get('driveid')[0]
+        item_id = args.get('item_id')[0]
+        string_id = 30002 if content_type == 'audio' else 30001
+        string_config = 'music_library_folder' if content_type == 'audio' else 'video_library_folder'
+        path = addon.getSetting(string_config)
+        if path is None or path == '' or not os.path.exists(path):  
+            path = dialog.browse(0, addon.getLocalizedString(string_id), 'files', '', False, False, '')
+        if os.path.exists(path):
+            progress_dialog.create(addonname + ' ' + addon.getLocalizedString(30024), addon.getLocalizedString(30025))
+            progress_dialog.update(0)
+            addon.setSetting(string_config, path)
+            f = onedrives[driveid].get('/drive/items/'+item_id)
+            name = utils.Utils.unicode(f['name']).encode('ascii', 'ignore')
+            if addon.getSetting('clean_folder') == 'true':
+                root = os.path.join(path, name)
+                if os.path.exists(root):
+                    try:
+                        shutil.rmtree(root, onerror=remove_readonly)
+                    except:
+                        xbmc.sleep(3000)
+                        shutil.rmtree(root, onerror=remove_readonly)
+            export_folder(name, item_id, driveid, path)
+            onedrives[driveid].exporting_count += 1
         else:
-            progress_dialog.close()
-            dialog.ok(addonname, 'It looks like you did not complete the sign-in process.', 'Please try again.')
-elif action[0] == 'remove_account':
-    driveid = args.get('driveid')[0]
-    if dialog.yesno(addonname, 'Account "'+config.get(driveid, 'name')+'" will be removed. Are you sure?', None):
-        config.remove_section(driveid)
-        with open(config_path, 'wb') as configfile:
-            config.write(configfile)
-    xbmc.executebuiltin('Container.Refresh')
-elif action[0] == 'open_drive':
-    driveid = args.get('driveid')[0]
-    files = onedrives[driveid].get(root_url, params=extra_parameters)
-    process_files(files, driveid)
-    xbmcplugin.endOfDirectory(addon_handle)
-elif action[0] == 'open_folder':
-    driveid = args.get('driveid')[0]
-    item_id = args.get('item_id')[0]
-    files = onedrives[driveid].get('/drive/items/'+item_id+'/children', params=extra_parameters )
-    process_files(files, driveid)
-    xbmcplugin.endOfDirectory(addon_handle)
-elif action[0] == 'export_folder':
-    driveid = args.get('driveid')[0]
-    item_id = args.get('item_id')[0]
-    string_id = 30002 if content_type == 'audio' else 30001
-    string_config = 'music_library_folder' if content_type == 'audio' else 'video_library_folder'
-    path = addon.getSetting(string_config)
-    if path is None or path == '' or not os.path.exists(path):  
-        path = dialog.browse(0, addon.getLocalizedString(string_id), 'files', '', False, False, '')
-    if os.path.exists(path):
-        progress_dialog.create(addonname + ' exporting', 'Starting, please wait...')
-        progress_dialog.update(0)
-        addon.setSetting(string_config, path)
+            dialog.ok(addonname, addon.getLocalizedString(30026))
+    elif action[0] == 'show_image':
+        url = args.get('url')[0]
+        xbmc.executebuiltin("ShowPicture("+url+")")
+    elif action[0] == 'play':
+        driveid = args.get('driveid')[0]
+        item_id = args.get('item_id')[0]
         f = onedrives[driveid].get('/drive/items/'+item_id)
-        name = f['name'].encode('ascii', 'ignore')
-        if addon.getSetting('clean_folder') == 'true':
-            root = os.path.join(path, name)
-            if os.path.exists(root):
-                try:
-                    shutil.rmtree(root, onerror=remove_readonly)
-                except:
-                    xbmc.sleep(3000)
-                    shutil.rmtree(root, onerror=remove_readonly)
-        export_folder(name, item_id, driveid, path)
-        onedrives[driveid].exporting_count += 1
-    else:
-        dialog.ok(addonname, 'A valid folder is required')
-elif action[0] == 'show_image':
-    url = args.get('url')[0]
-    xbmc.executebuiltin("ShowPicture("+url+")")
-elif action[0] == 'play':
-    driveid = args.get('driveid')[0]
-    item_id = args.get('item_id')[0]
-    f = onedrives[driveid].get('/drive/items/'+item_id)
-    url = f['@content.downloadUrl']
-    list_item = xbmcgui.ListItem(f['name'])
-    set_info = set_audio_info if content_type == 'audio' else set_video_info
-    set_info(list_item, f)
-    list_item.select(True)
-    list_item.setPath(url)
-    list_item.setProperty('mimetype', f['file']['mimeType'])
-    xbmcplugin.setResolvedUrl(addon_handle, True, list_item)
+        url = f['@content.downloadUrl']
+        list_item = xbmcgui.ListItem(utils.Utils.str(f['name']))
+        set_info = set_audio_info if content_type == 'audio' else set_video_info
+        set_info(list_item, f)
+        list_item.select(True)
+        list_item.setPath(url)
+        list_item.setProperty('mimetype', f['file']['mimeType'])
+        xbmcplugin.setResolvedUrl(addon_handle, True, list_item)
+except Exception as ex:
+    dialog.ok(addonname, addon.getLocalizedString(30027), utils.Utils.str(ex), addon.getLocalizedString(30016))
