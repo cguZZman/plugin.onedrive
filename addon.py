@@ -216,7 +216,7 @@ def export_folder(name, item_id, driveid, destination_folder):
             break
         is_folder = 'folder' in f
         extension = utils.Utils.get_extension(f['name']);
-        name = utils.Utils.unicode(f['name']).encode('ascii', 'ignore')
+        name = utils.Utils.ascii(f['name'])
         if is_folder:
             export_folder(name, f['id'], driveid, parent_folder)
         elif (('video' in f or extension == 'mkv') and content_type == 'video') or ('audio' in f and content_type == 'audio'):
@@ -273,7 +273,7 @@ try:
                     progress_dialog.update(30, addon.getLocalizedString(30014))
                     onedrive.login(json['code']);
                 except Exception as e:
-                    dialog.ok(addonname, addon.getLocalizedString(30015), utils.Utils.str(e), addon.getLocalizedString(30016))
+                    dialog.ok(addonname, addon.getLocalizedString(30015), utils.Utils.unicode(e), addon.getLocalizedString(30016))
                     report_error(e)
                     loginFailed = True
                 if not loginFailed:
@@ -282,7 +282,7 @@ try:
                         info = onedrive.get('/drive')
                     except Exception as e:
                         info = None
-                        dialog.ok(addonname, addon.getLocalizedString(30018), utils.Utils.str(e), addon.getLocalizedString(30016))
+                        dialog.ok(addonname, addon.getLocalizedString(30018), utils.Utils.unicode(e), addon.getLocalizedString(30016))
                         report_error(e)
                     if info is None:
                         progress_dialog.close()
@@ -293,13 +293,13 @@ try:
                         try:
                             progress_dialog.update(90, addon.getLocalizedString(30020))
                             onedrive.driveid = info['id']
-                            onedrive.name = utils.Utils.str(info['owner']['user']['displayName'])
+                            onedrive.name = utils.Utils.ascii(info['owner']['user']['displayName'])
                             config.add_section(onedrive.driveid)
                             save_onedrive_config(config, onedrive)
                             progress_dialog.close()
                         except Exception as e:
                             print e
-                            dialog.ok(addonname, addon.getLocalizedString(30021), utils.Utils.str(e), addon.getLocalizedString(30016))
+                            dialog.ok(addonname, addon.getLocalizedString(30021), utils.Utils.unicode(e), addon.getLocalizedString(30016))
                             report_error(e)
                 xbmc.executebuiltin('Container.Refresh')
             else:
@@ -307,7 +307,7 @@ try:
                 dialog.ok(addonname, addon.getLocalizedString(30022), addon.getLocalizedString(30016), addon.getLocalizedString(30029))
     elif action[0] == 'remove_account':
         driveid = args.get('driveid')[0]
-        if dialog.yesno(addonname, addon.getLocalizedString(30023) % config.get(driveid, 'name'), None):
+        if dialog.yesno(addonname, addon.getLocalizedString(30023) % utils.Utils.unicode(config.get(driveid, 'name')), None):
             config.remove_section(driveid)
             with open(config_path, 'wb') as configfile:
                 config.write(configfile)
@@ -366,8 +366,8 @@ try:
         set_info(list_item, f)
         list_item.select(True)
         list_item.setPath(url)
-        list_item.setProperty('mimetype', f['file']['mimeType'])
+        list_item.setProperty('mimetype', utils.Utils.get_safe_value(f['file'], 'mimeType'))
         xbmcplugin.setResolvedUrl(addon_handle, True, list_item)
 except Exception as ex:
-    dialog.ok(addonname, addon.getLocalizedString(30027), utils.Utils.str(ex), addon.getLocalizedString(30016))
+    dialog.ok(addonname, addon.getLocalizedString(30027), utils.Utils.unicode(ex), addon.getLocalizedString(30016))
     report_error(ex)
