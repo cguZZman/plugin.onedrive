@@ -43,6 +43,7 @@ args = urlparse.parse_qs(sys.argv[2][1:])
 
 addon = xbmcaddon.Addon()
 addonname = addon.getAddonInfo('name')
+monitor = xbmc.Monitor()
 
 action = args.get('action', None)
 try:
@@ -66,7 +67,7 @@ if not os.path.exists(addon_data_path):
     try:
         os.makedirs(addon_data_path)
     except:
-        xbmc.sleep(3000)
+        monitor.waitForAbort(3)
         os.makedirs(addon_data_path)
 
 config_path = addon_data_path + '/onedrive.ini'
@@ -163,13 +164,14 @@ def process_files(files, driveid):
             xbmcplugin.addDirectoryItem(addon_handle, url, list_item, is_folder)
     if '@odata.nextLink' in files:
         process_files(onedrives[driveid].get(files['@odata.nextLink'], raw_url=True), driveid)
-def print_slideshow_info(monitor):
+
+def print_slideshow_info():
     if xbmcgui.getCurrentWindowId() == 12007:
         print 'Slideshow is there...'
     elif monitor.abortRequested():
         print 'Abort requested...'
+
 def refresh_slideshow(driveid, item_id, childCount, waitForSlideshow):
-    monitor = xbmc.Monitor()
     if waitForSlideshow:
         print 'Waiting up to 10 minutes until the slideshow of folder ' + item_id + ' start...'
         current_time = time.time()
@@ -192,6 +194,7 @@ def refresh_slideshow(driveid, item_id, childCount, waitForSlideshow):
         start_auto_refreshed_slideshow(driveid, item_id, childCount)
     else:
         print 'Slideshow is not running anymore or abort requested.'
+
 def start_auto_refreshed_slideshow(driveid, item_id, oldChildCount):
     f = onedrives[driveid].get('/drive/items/'+item_id)
     if 'folder' in f:
@@ -218,7 +221,7 @@ def export_folder(name, item_id, driveid, destination_folder):
         try:
             os.makedirs(parent_folder)
         except:
-            xbmc.sleep(3000)
+            monitor.waitForAbort(3)
             os.makedirs(parent_folder)
     files = onedrives[driveid].get('/drive/items/'+item_id+'/children')
     onedrives[driveid].exporting_target += len(files['value'])
@@ -241,6 +244,7 @@ def export_folder(name, item_id, driveid, destination_folder):
             fo.write(url)
             fo.close()
         onedrives[driveid].exporting_count += 1
+
 def remove_readonly(fn, path, excinfo):
     if fn is os.rmdir:
         os.chmod(path, stat.S_IWRITE)
@@ -248,6 +252,7 @@ def remove_readonly(fn, path, excinfo):
     elif fn is os.remove:
         os.chmod(path, stat.S_IWRITE)
         os.remove(path)
+
 def report_error(e):
     tb = traceback.format_exc()
     if isinstance(e, OneDriveException):
@@ -366,7 +371,7 @@ try:
                     try:
                         shutil.rmtree(root, onerror=remove_readonly)
                     except:
-                        xbmc.sleep(3000)
+                        monitor.waitForAbort(3)
                         shutil.rmtree(root, onerror=remove_readonly)
             export_folder(name, item_id, driveid, path)
             onedrives[driveid].exporting_count += 1
