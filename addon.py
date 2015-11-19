@@ -153,10 +153,9 @@ def process_files(files, driveid):
             set_info(list_item, f)
             list_item.setProperty('IsPlayable', 'true')
         elif ('image' in f or 'photo' in f) and content_type == 'image' and extension != 'mp4':
-            params = {'action':'show_image', 'content_type': content_type, 'url': f['@content.downloadUrl']}
-            list_item.addContextMenuItems([(addon.getLocalizedString(30005), 'RunPlugin('+base_url + '?' + urllib.urlencode(params)+')')], True)
             url = f['@content.downloadUrl']
             list_item.setInfo('pictures', {'size': f['size']})
+            list_item.setProperty('mimetype', utils.Utils.get_safe_value(f['file'], 'mimeType'))
             if 'thumbnails' in f and len(f['thumbnails']) > 0:
                 thumbnails = f['thumbnails'][0]
                 list_item.setIconImage(thumbnails['large']['url'])
@@ -292,7 +291,7 @@ try:
         onedrive = OneDrive(addon.getSetting('client_id'))
         pin = onedrive.begin_signin()
         progress_dialog.close()
-        if dialog.yesno(addonname, addon.getLocalizedString(30009),addon.getLocalizedString(30010) % pin, None, addon.getLocalizedString(30011), addon.getLocalizedString(30012)):
+        if dialog.yesno(addonname, addon.getLocalizedString(30009),addon.getLocalizedString(30010) % pin, '', addon.getLocalizedString(30011), addon.getLocalizedString(30012)):
             progress_dialog.create(addonname, addon.getLocalizedString(30013))
             json = onedrive.finish_signin(pin)
             if json['success']:
