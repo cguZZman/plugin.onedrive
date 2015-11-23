@@ -48,7 +48,11 @@ class OneDrive:
         self.monitor = xbmc.Monitor()
         self.addon = xbmcaddon.Addon()
         self.addonname = self.addon.getAddonInfo('name')
-        self.progress_dialog = xbmcgui.DialogProgress()
+        self.progress_dialog_bg = xbmcgui.DialogProgressBG()
+        self.pg_bg_created = False
+        
+    def cancelOperation(self):
+        return self.monitor.abortRequested()
     def begin_signin(self):
         return self.request('get', self._signin_url, None, True)['pin']
     def finish_signin(self, pin):
@@ -62,13 +66,14 @@ class OneDrive:
         else:
             data = self._get_login_request_data('authorization_code', code)
         jsonResponse = self.request('post', self._login_url, data, True)
-        if 'error' in jsonResponse:
-            raise OneDriveException(Exception('login', utils.Utils.str(jsonResponse['error']), utils.Utils.str(jsonResponse['error_description'])), None, 'response of login', str(jsonResponse))
-        else:
-            self.access_token = jsonResponse['access_token']
-            self.refresh_token = jsonResponse['refresh_token']
-            if not self.event_listener is None:
-                self.event_listener(self, 'login_success', jsonResponse)
+        if not self.cancelOperation():
+            if 'error' in jsonResponse:
+                raise OneDriveException(Exception('login', utils.Utils.str(jsonResponse['error']), utils.Utils.str(jsonResponse['error_description'])), None, 'response of login', str(jsonResponse))
+            else:
+                self.access_token = jsonResponse['access_token']
+                self.refresh_token = jsonResponse['refresh_token']
+                if not self.event_listener is None:
+                    self.event_listener(self, 'login_success', jsonResponse)
     
     def _get_login_request_data(self, grant_type, code=None):
         data = {
@@ -107,12 +112,15 @@ class OneDrive:
         url_params = self.get_url_params(params, raw_url)
         url = self.get_url(method, path, url_params) if not raw_url else path
         try:
-            if method == 'get':
-                response = urllib2.urlopen(url).read()
-            else:
-                response = urllib2.urlopen(url, url_params).read()
+            if not self.cancelOperation():
+                if method == 'get':
+                    response = urllib2.urlopen(url).read()
+                else:
+                    response = urllib2.urlopen(url, url_params).read()
             self.retry_times = 0
-            return json.loads(response)
+            if not self.cancelOperation():
+                return json.loads(response)
+            return {}
         except Exception as e:
             if self.retry_times < self.retry_target:
                 self.retry_times += 1
@@ -125,21 +133,22 @@ class OneDrive:
                     if self.retry_times == 1:
                         again = ''
                         attempt = None
-                    self.progress_dialog.create(self.addonname)
+                    self.progress_dialog_bg.create(self.addonname)
+                    self.pg_bg_created = True
                     current_time = time.time()
                     max_waiting_time = current_time + seconds
-                    while not self.monitor.abortRequested() and max_waiting_time > current_time and not self.progress_dialog.iscanceled():
+                    while not self.cancelOperation() and max_waiting_time > current_time:
                         remaining = round(max_waiting_time-current_time)
                         p = int(remaining/seconds*100) if remaining > 0 else 0
                         p = 100 if p > 100 else p
-                        self.progress_dialog.update(p, self.addon.getLocalizedString(30043) % again + ' ' + self.addon.getLocalizedString(30044) % str(int(remaining)), attempt)
+                        self.progress_dialog_bg.update(p, self.addon.getLocalizedString(30043) % again + ' ' + self.addon.getLocalizedString(30044) % str(int(remaining)), attempt)
                         if self.monitor.waitForAbort(1):
                             break
                         current_time = time.time()
-                    self.progress_dialog.close()
+                    self.progress_dialog_bg.close()
                 return self.request(method, path, params, raw_url)
             else:
-                self.progress_dialog.close()
+                self.progress_dialog_bg.close()
                 self.retry_times = 0
                 raise OneDriveException(e, sys.exc_info()[2], url, url_params)
         
