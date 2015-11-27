@@ -508,6 +508,16 @@ try:
             list_item.select(True)
             list_item.setPath(url)
             list_item.setProperty('mimetype', utils.Utils.get_safe_value(f['file'], 'mimeType'))
+            if addon.getSetting('set_subtitle') == 'true' and content_type == 'video' and 'parentReference' in f:
+                file_name = utils.Utils.unicode(f['name'])
+                parent_path = utils.Utils.get_safe_value(f['parentReference'], 'path', '')
+                subtitle_path = parent_path+'/'+utils.Utils.replace_extension(file_name, 'srt')
+                try:
+                    subtitle = onedrive.get(subtitle_path, retry=False)
+                    if not cancelOperation(onedrive):
+                        list_item.setSubtitles([subtitle['@content.downloadUrl']])
+                except:
+                    None
             xbmcplugin.setResolvedUrl(addon_handle, True, list_item)
 except Exception as e:
     ex = e

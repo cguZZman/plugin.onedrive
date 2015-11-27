@@ -54,10 +54,10 @@ class OneDrive:
     def cancelOperation(self):
         return self.monitor.abortRequested()
     def begin_signin(self):
-        return self.request('get', self._signin_url, None, True)['pin']
+        return self.get(self._signin_url, raw_url=True)['pin']
     def finish_signin(self, pin):
         url = self._signin_url + '?' + urllib.urlencode({'action': 'code', 'pin': pin})
-        return self.request('get', url, None, True)
+        return self.get(url, raw_url=True)
     def login(self, code=None):
         if code is None:
             data = self._get_login_request_data('refresh_token')
@@ -65,7 +65,7 @@ class OneDrive:
                 raise OneDriveException(Exception('login', 'No authorization code or refresh token provided.'), None, 'login method', data)
         else:
             data = self._get_login_request_data('authorization_code', code)
-        jsonResponse = self.request('post', self._login_url, data, True)
+        jsonResponse = self.post(self._login_url, params=data, raw_url=True)
         if not self.cancelOperation():
             if 'error' in jsonResponse:
                 raise OneDriveException(Exception('login', utils.Utils.str(jsonResponse['error']), utils.Utils.str(jsonResponse['error_description'])), None, 'response of login', str(jsonResponse))
@@ -108,7 +108,7 @@ class OneDrive:
             url = url + '?' + params
         return url
     
-    def request(self, method, path, params=None, raw_url=False):
+    def request(self, method, path, params=None, raw_url=False, retry=True):
         url_params = self.get_url_params(params, raw_url)
         url = self.get_url(method, path, url_params) if not raw_url else path
         try:
@@ -122,7 +122,7 @@ class OneDrive:
                 return json.loads(response)
             return {}
         except Exception as e:
-            if self.retry_times < self.retry_target:
+            if self.retry_times < self.retry_target and retry:
                 self.retry_times += 1
                 if isinstance(e, urllib2.HTTPError) and (e.code == 401 or e.code == 404):
                     self.login()
@@ -146,9 +146,10 @@ class OneDrive:
                             break
                         current_time = time.time()
                     self.progress_dialog_bg.close()
-                return self.request(method, path, params, raw_url)
+                return self.request(method, path, params, raw_url, retry)
             else:
-                self.progress_dialog_bg.close()
+                if self.pg_bg_created:
+                    self.progress_dialog_bg.close()
                 self.retry_times = 0
                 raise OneDriveException(e, sys.exc_info()[2], url, url_params)
         
