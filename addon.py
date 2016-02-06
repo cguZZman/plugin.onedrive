@@ -306,7 +306,7 @@ def report_error(e):
     tb = traceback.format_exc()
     if isinstance(e, OneDriveException):
         try:
-            tb += '\n--Origin: --\n' + ''.join(traceback.format_exception(type(e.origin), e.origin, e.tb))
+            tb += '\n--Origin: --\n' + e.tb
             tb += '\n--url--\n' + e.url
             tb += '\n--body--\n' + utils.Utils.str(e.body)
         except Exception as e:
