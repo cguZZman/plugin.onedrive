@@ -289,9 +289,8 @@ def export_folder(name, item_id, driveid, destination_folder, directLink=None):
         elif (('video' in f or extension in ext_videos) and content_type == 'video') or ('audio' in f and content_type == 'audio'):
             params = {'action':'play', 'content_type': content_type, 'item_id': f['id'], 'driveid': driveid}
             url = base_url + '?' + urllib.urlencode(params)
-            fo = open(os.path.join(parent_folder, name + '.strm'), 'wb')
-            fo.write(url)
-            fo.close()
+            with open(os.path.join(parent_folder, name + '.strm'), 'wb') as fo:
+                fo.write(url)
         onedrives[driveid].exporting_count += 1
         p = int(onedrive.exporting_count/float(onedrive.exporting_target)*100)
         if onedrive.exporting_percent < p:
@@ -484,18 +483,16 @@ try:
                         xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
                     else:
                         user_dic[remote_user_id].append(f)
-            fo = open(shared_json_path, 'wb')
-            fo.write(json.dumps(user_dic))
-            fo.close()
+            with open(shared_json_path, 'wb') as fo:
+                fo.write(json.dumps(user_dic))
         if not cancelOperation(onedrive):
             xbmcplugin.endOfDirectory(addon_handle)
     elif action[0] == 'open_shared_by':
         driveid = args.get('driveid')[0]
         onedrive = onedrives[driveid]
         remote_user_id = args.get('remote_user_id')[0]
-        fo = open(shared_json_path, 'rb')
-        files = json.loads(fo.read())
-        fo.close()
+        with open(shared_json_path, 'rb') as fo:
+            files = json.loads(fo.read())
         if not cancelOperation(onedrive):
             process_files({'value' : files[remote_user_id]}, driveid, 0, 0, False)
         if not cancelOperation(onedrive):
