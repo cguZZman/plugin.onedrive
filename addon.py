@@ -626,17 +626,17 @@ try:
                 file_name = utils.Utils.unicode(f['name'])
                 parent_path = utils.Utils.get_safe_value(f['parentReference'], 'path', '')
                 subtitle_name = utils.Utils.replace_extension(file_name, 'srt')
-                subtitle_path = parent_path+'/'+subtitle_name
-                progress_dialog_bg.create(addonname, 'Searching subtitle file %s, please wait...' % subtitle_name)
+                subtitle_path = parent_path+'/'+urllib.quote_plus(subtitle_name)
+                progress_dialog_bg.create(addonname, addon.getLocalizedString(32060) % subtitle_name)
                 pg_bg_created = True
                 progress_dialog_bg.update(50)
                 try:
                     subtitle = onedrive.get(subtitle_path, retry=False)
                     if not cancelOperation(onedrive):
                         list_item.setSubtitles([subtitle['@content.downloadUrl']])
-                    progress_dialog_bg.update(100, addonname, 'Subtitle found! Playing this video with subtitle...')
-                except:
-                    progress_dialog_bg.update(100, addonname, 'Subtitle not found for this video')
+                    progress_dialog_bg.update(100, addonname, addon.getLocalizedString(32061))
+                except Exception as e:
+                    progress_dialog_bg.update(100, addonname, addon.getLocalizedString(32062))
                 t = threading.Thread(target=close_dialog_timeout, args=(progress_dialog_bg, 4))
                 t.setDaemon(True)
                 t.start()

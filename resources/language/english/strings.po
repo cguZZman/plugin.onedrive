@@ -256,3 +256,14 @@ msgctxt "#32059"
 msgid "Exporting task already in progress."
 msgstr ""
 
+msgctxt "#32060"
+msgid "Searching subtitle file %s, please wait..."
+msgstr ""
+
+msgctxt "#32061"
+msgid "Subtitle found! Playing this video with subtitle..."
+msgstr ""
+
+msgctxt "#32062"
+msgid "Subtitle not found for this video"
+msgstr ""
