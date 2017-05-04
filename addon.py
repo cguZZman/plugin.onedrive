@@ -23,7 +23,6 @@
 import ConfigParser
 import json
 import os
-import shutil
 import stat
 import sys
 import threading
@@ -40,6 +39,7 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
+import xbmcvfs
 
 
 base_url = sys.argv[0]
@@ -82,12 +82,6 @@ if not os.path.exists(addon_data_path):
 
 config_path = addon_data_path + '/onedrive.ini'
 shared_json_path = addon_data_path + '/shared.json'
-old_config_path = xbmc.translatePath('special://home/onedrive.ini')
-if os.path.exists(old_config_path) and not os.path.exists(config_path):
-    try:
-        shutil.move(old_config_path, config_path)
-    except Exception as e:
-        dialog.ok(addonname, addon.getLocalizedString(32028) % config_path)
 
 onedrives = {}
 login_url = ''
@@ -278,15 +272,15 @@ def close_dialog_timeout(dialog, timeout):
         current_time = time.time()
     dialog.close()
 
-def export_folder(name, item_id, driveid, destination_folder, base_folder, directLink=None):
+def export_folder(basename, item_id, driveid, destination_folder, base_folder, directLink=None):
     onedrive = get_onedrive(driveid)
-    parent_folder = os.path.join(destination_folder, name)
-    if not os.path.exists(parent_folder):
+    parent_folder = destination_folder + basename + '/'
+    if not xbmcvfs.exists(parent_folder):
         try:
-            os.makedirs(parent_folder)
+            xbmcvfs.mkdirs(parent_folder)
         except:
             monitor.waitForAbort(3)
-            os.makedirs(parent_folder)
+            xbmcvfs.mkdirs(parent_folder)
     if directLink is None:
         files = onedrive.get('/drive/items/'+item_id+'/children')
     else:
@@ -311,24 +305,17 @@ def export_folder(name, item_id, driveid, destination_folder, base_folder, direc
         elif (('video' in f or extension in ext_videos) and content_type == 'video') or ('audio' in f and content_type == 'audio'):
             params = {'action':'play', 'content_type': content_type, 'item_id': f['id'], 'driveid': driveid}
             url = base_url + '?' + urllib.urlencode(params)
-            with open(os.path.join(parent_folder, name + '.strm'), 'wb') as fo:
-                fo.write(url)
+            f = xbmcvfs.File(parent_folder + name + '.strm', 'w')
+            f.write(url)
+            f.close()
         onedrive.exporting_count += 1
         p = int(onedrive.exporting_count/float(onedrive.exporting_target)*100)
         if onedrive.exporting_percent < p:
             onedrive.exporting_percent = p
-        file_path = os.path.join(parent_folder, name)
+        file_path = parent_folder + name
         export_progress_dialog_bg.update(onedrive.exporting_percent, addonname + ' ' + addon.getLocalizedString(32024), file_path[len(base_folder):])
     if '@odata.nextLink' in files and not cancelOperation(onedrive):
-        export_folder(os.path.basename(parent_folder), item_id, driveid, destination_folder, base_folder, files['@odata.nextLink'])
-
-def remove_readonly(fn, path, excinfo):
-    if fn is os.rmdir:
-        os.chmod(path, stat.S_IWRITE)
-        os.rmdir(path)
-    elif fn is os.remove:
-        os.chmod(path, stat.S_IWRITE)
-        os.remove(path)
+        export_folder(basename, item_id, driveid, destination_folder, base_folder, files['@odata.nextLink'])
 
 def report_error(e):
     tb = traceback.format_exc()
@@ -551,9 +538,9 @@ try:
             string_id = 32002 if content_type == 'audio' else 32001
             string_config = 'music_library_folder' if content_type == 'audio' else 'video_library_folder'
             path = addon.getSetting(string_config)
-            if path is None or path == '' or not os.path.exists(path):  
+            if path is None or path == '' or not xbmcvfs.exists(path):  
                 path = dialog.browse(0, addon.getLocalizedString(string_id), 'files', '', False, False, '')
-            if os.path.exists(path):
+            if xbmcvfs.exists(path):
                 export_progress_dialog_bg.create(addonname + ' ' + addon.getLocalizedString(32024), addon.getLocalizedString(32025))
                 export_pg_bg_created = True
                 export_progress_dialog_bg.update(0)
@@ -562,19 +549,14 @@ try:
                 if not cancelOperation(onedrive):
                     onedrive.exporting_target = int(f['folder']['childCount']) + 1
                     name = utils.Utils.unicode(f['name']).encode('ascii', 'ignore')
-                    if addon.getSetting('clean_folder') == 'true':
-                        root = os.path.join(path, name)
-                        if os.path.exists(root):
-                            try:
-                                shutil.rmtree(root, onerror=remove_readonly)
-                            except:
-                                monitor.waitForAbort(3)
-                                shutil.rmtree(root, onerror=remove_readonly)
+                    root = path + name + '/'
+                    if addon.getSetting('clean_folder') == 'true' and xbmcvfs.exists(root):
+                        xbmcvfs.rmdir(root)
                     onedrive.exporting = True
                     addon.setSetting('exporting','true')
-                    export_folder(name, item_id, driveid, path, os.path.join(path, name))
+                    export_folder(name, item_id, driveid, path, root)
             else:
-                dialog.ok(addonname, addon.getLocalizedString(32026))
+                dialog.ok(addonname, path + ' ' + addon.getLocalizedString(32026))
     elif action[0] == 'show_image':
         url = args.get('url')[0]
         xbmc.executebuiltin('ShowPicture('+url+')')
@@ -626,11 +608,19 @@ try:
         f = onedrive.get('/drive/items/'+item_id)
         if not cancelOperation(onedrive):
             url = f['@content.downloadUrl']
+            http_service_url = 'http://localhost:' + addon.getSetting('http.service.port') + '/' + item_id
+            try:
+                req = urllib2.Request(http_service_url, data='')
+                req.add_header('download-url', url)
+                urllib2.urlopen(req).read()
+            except Exception as e:
+                xbmc.log(traceback.format_exc(), xbmc.LOGNOTICE)
+            
             list_item = xbmcgui.ListItem(utils.Utils.unicode(f['name']))
             set_info = set_audio_info if content_type == 'audio' else set_video_info
             set_info(list_item, f)
             list_item.select(True)
-            list_item.setPath(url)
+            list_item.setPath(http_service_url)
             list_item.setProperty('mimetype', utils.Utils.get_safe_value(f['file'], 'mimeType'))
             if addon.getSetting('set_subtitle') == 'true' and content_type == 'video' and 'parentReference' in f:
                 file_name = utils.Utils.unicode(f['name'])

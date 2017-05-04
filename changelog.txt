@@ -1,3 +1,5 @@
+v1.1.13 released - Pending:
+- Download subtitle fixed. 
 v1.1.12 released - Dec 16, 2016:
 - Minor fixes
 --------------------------

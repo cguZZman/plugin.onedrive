@@ -133,7 +133,7 @@ msgid "Unable to move your previous accounts information file. Please move it ma
 msgstr ""
 
 msgctxt "#32029"
-msgid "Need help? e-mail me: carlosguzmang@hotmail.com"
+msgid "Need help? Go to the forum: http://onedrive.daro.mx/forum"
 msgstr ""
 
 msgctxt "#32030"
