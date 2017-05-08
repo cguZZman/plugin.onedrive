@@ -23,7 +23,6 @@
 import ConfigParser
 import json
 import os
-import stat
 import sys
 import threading
 import time
@@ -107,7 +106,7 @@ def save_onedrive_config(config, onedrive):
         config.write(configfile)
 
 for driveid in config.sections():
-    onedrive = OneDrive(addon.getSetting('client_id'))
+    onedrive = OneDrive(addon.getSetting('client_id_oauth2'))
     onedrive.driveid = driveid
     onedrive.event_listener = onedrive_event_listener
     onedrive.name = config.get(driveid, 'name')
@@ -150,13 +149,14 @@ def process_files(files, driveid, child_count, child_loaded, big_folder):
     for f in files['value']:
         f = utils.Utils.get_safe_value(f, 'remoteItem', f)
         item_id = f['id']
+        item_driveid = utils.Utils.get_safe_value(utils.Utils.get_safe_value(f, 'parentReference', {}), 'driveId', driveid)
         file_name = utils.Utils.unicode(utils.Utils.get_safe_value(f, 'name', 'No name found: ' + utils.Utils.str(item_id)))
         is_folder = 'folder' in f
         url = None
         list_item = xbmcgui.ListItem(file_name)
         extension = utils.Utils.get_extension(file_name);
         if is_folder:
-            params = {'action':'open_folder', 'content_type': content_type, 'item_id': item_id, 'driveid': driveid, 'child_count' : f['folder']['childCount']}
+            params = {'action':'open_folder', 'content_type': content_type, 'item_driveid': item_driveid, 'item_id': item_id, 'driveid': driveid, 'child_count' : f['folder']['childCount']}
             url = base_url + '?' + urllib.urlencode(params)
             context_options = []
             if content_type == 'audio' or content_type == 'video':
@@ -171,14 +171,14 @@ def process_files(files, driveid, child_count, child_loaded, big_folder):
             context_options.append((addon.getLocalizedString(32039), cmd))
             list_item.addContextMenuItems(context_options)
         elif (('video' in f or extension in ext_videos) and content_type == 'video') or (('audio' in f or extension in ext_audio) and content_type == 'audio'):
-            params = {'action':'play', 'content_type': content_type, 'item_id': item_id, 'driveid': driveid}
+            params = {'action':'play', 'content_type': content_type, 'item_driveid': item_driveid, 'item_id': item_id, 'driveid': driveid, 'item_driveid' : item_driveid}
             url = base_url + '?' + urllib.urlencode(params)
             set_info = set_audio_info if content_type == 'audio' else set_video_info
             set_info(list_item, f)
             list_item.setProperty('IsPlayable', 'true')
         elif ('image' in f or 'photo' in f) and content_type == 'image' and extension != 'mp4':
             params = {'access_token' : onedrive.access_token}
-            url = f['@content.downloadUrl'] + '?' + urllib.urlencode(params)
+            url = f['@microsoft.graph.downloadUrl']
             list_item.setInfo('pictures', {'size': f['size']})
             list_item.setProperty('mimetype', utils.Utils.get_safe_value(f['file'], 'mimeType'))
             if 'thumbnails' in f and len(f['thumbnails']) > 0:
@@ -204,7 +204,7 @@ def print_slideshow_info(onedrive):
     elif cancelOperation(onedrive):
         print 'Abort requested...'
 
-def refresh_slideshow(driveid, item_id, child_count, waitForSlideshow):
+def refresh_slideshow(driveid, item_driveid, item_id, child_count, waitForSlideshow):
     onedrive = get_onedrive(driveid)
     if waitForSlideshow:
         print 'Waiting up to 10 minutes until the slideshow of folder ' + item_id + ' starts...'
@@ -226,7 +226,7 @@ def refresh_slideshow(driveid, item_id, child_count, waitForSlideshow):
     print_slideshow_info(onedrive)
     if not cancelOperation(onedrive) and xbmcgui.getCurrentWindowId() == 12007:
         try:
-            start_auto_refreshed_slideshow(driveid, item_id, child_count)
+            start_auto_refreshed_slideshow(driveid, item_driveid, item_id, child_count)
         except Exception as e:
             print 'Slideshow fails to auto refresh. Will be restarted when possible. Error: '
             if isinstance(e, OneDriveException):
@@ -236,13 +236,13 @@ def refresh_slideshow(driveid, item_id, child_count, waitForSlideshow):
                     traceback.print_exc()
             else:
                 traceback.print_exc()
-            refresh_slideshow(driveid, item_id, -1, waitForSlideshow)
+            refresh_slideshow(driveid, item_driveid, item_id, -1, waitForSlideshow)
     else:
         print 'Slideshow is not running anymore or abort requested.'
 
-def start_auto_refreshed_slideshow(driveid, item_id, oldchild_count):
+def start_auto_refreshed_slideshow(driveid, item_driveid, item_id, oldchild_count):
     onedrive = get_onedrive(driveid)
-    f = onedrive.get('/drive/items/'+item_id)
+    f = onedrive.get('/drives/'+item_driveid+'/items/'+item_id)
     if cancelOperation(onedrive):
         return
     if 'folder' in f:
@@ -251,13 +251,13 @@ def start_auto_refreshed_slideshow(driveid, item_id, oldchild_count):
         if oldchild_count != child_count:
             if oldchild_count >=0:
                 print 'Slideshow child count changed. Refreshing slideshow...'
-            params = {'action':'open_folder', 'content_type': content_type, 'item_id': item_id, 'driveid': driveid, 'child_count': child_count}
+            params = {'action':'open_folder', 'content_type': content_type, 'item_driveid': item_driveid, 'item_id': item_id, 'driveid': driveid, 'child_count': child_count}
             url = base_url + '?' + urllib.urlencode(params)
             xbmc.executebuiltin('SlideShow('+url+')')
             waitForSlideshow = True
         else:
             print 'Slideshow child count is the same, nothing to refresh...'
-        t = threading.Thread(target=refresh_slideshow, args=(driveid, item_id, child_count, waitForSlideshow,))
+        t = threading.Thread(target=refresh_slideshow, args=(driveid, item_driveid, item_id, child_count, waitForSlideshow,))
         t.setDaemon(True)
         t.start()
     else:
@@ -272,7 +272,7 @@ def close_dialog_timeout(dialog, timeout):
         current_time = time.time()
     dialog.close()
 
-def export_folder(basename, item_id, driveid, destination_folder, base_folder, directLink=None):
+def export_folder(basename, item_driveid, item_id, driveid, destination_folder, base_folder, directLink=None):
     onedrive = get_onedrive(driveid)
     parent_folder = destination_folder + basename + '/'
     if not xbmcvfs.exists(parent_folder):
@@ -282,7 +282,7 @@ def export_folder(basename, item_id, driveid, destination_folder, base_folder, d
             monitor.waitForAbort(3)
             xbmcvfs.mkdirs(parent_folder)
     if directLink is None:
-        files = onedrive.get('/drive/items/'+item_id+'/children')
+        files = onedrive.get('/drives/'+item_driveid+'/items/'+item_id+'/children')
     else:
         files = onedrive.get(directLink, raw_url=True)
     if cancelOperation(onedrive):
@@ -301,9 +301,9 @@ def export_folder(basename, item_id, driveid, destination_folder, base_folder, d
         extension = utils.Utils.get_extension(f['name']);
         name = utils.Utils.ascii(f['name'])
         if is_folder:
-            export_folder(name, f['id'], driveid, parent_folder, base_folder)
+            export_folder(name, item_driveid, f['id'], driveid, parent_folder, base_folder)
         elif (('video' in f or extension in ext_videos) and content_type == 'video') or ('audio' in f and content_type == 'audio'):
-            params = {'action':'play', 'content_type': content_type, 'item_id': f['id'], 'driveid': driveid}
+            params = {'action':'play', 'content_type': content_type, 'item_driveid': item_driveid, 'item_id': f['id'], 'driveid': driveid}
             url = base_url + '?' + urllib.urlencode(params)
             f = xbmcvfs.File(parent_folder + name + '.strm', 'w')
             f.write(url)
@@ -315,7 +315,7 @@ def export_folder(basename, item_id, driveid, destination_folder, base_folder, d
         file_path = parent_folder + name
         export_progress_dialog_bg.update(onedrive.exporting_percent, addonname + ' ' + addon.getLocalizedString(32024), file_path[len(base_folder):])
     if '@odata.nextLink' in files and not cancelOperation(onedrive):
-        export_folder(basename, item_id, driveid, destination_folder, base_folder, files['@odata.nextLink'])
+        export_folder(basename, item_driveid, item_id, driveid, destination_folder, base_folder, files['@odata.nextLink'])
 
 def report_error(e):
     tb = traceback.format_exc()
@@ -327,7 +327,7 @@ def report_error(e):
         except Exception as e:
             tb += '\n--Exception trying build the report: --\n' + traceback.format_exc()
     tb += '\nVersion: %s' % addon.getAddonInfo('version')
-    xbmc.log(tb)
+    xbmc.log(tb, xbmc.LOGNOTICE)
     if addon.getSetting('report_error') == 'true':
         try:
             urllib2.urlopen('http://onedrive.daro.mx/report-error.jsp', urllib.urlencode({'stacktrace':tb})).read()
@@ -366,41 +366,57 @@ try:
             json_result = onedrive.finish_signin(pin)
             if json_result['success']:
                 loginFailed = False
-                try:
-                    progress_dialog.update(30, addon.getLocalizedString(32014))
-                    onedrive.login(json_result['code']);
-                except Exception as e:
-                    dialog.ok(addonname, addon.getLocalizedString(32015), utils.Utils.unicode(e), addon.getLocalizedString(32016))
-                    report_error(e)
-                    loginFailed = True
-                if not loginFailed:
+                if not loginFailed and not cancelOperation(onedrive):
                     try:
-                        progress_dialog.update(70, addon.getLocalizedString(32017))
-                        info = onedrive.get('/drive')
+                        progress_dialog.update(30, addon.getLocalizedString(32014))
+                        onedrive.login(json_result['code']);
                     except Exception as e:
+                        loginFailed = True
+                        progress_dialog.close()
+                        pg_created = False
                         if not cancelOperation(onedrive):
-                            info = None
+                            dialog.ok(addonname, addon.getLocalizedString(32015), utils.Utils.unicode(e), addon.getLocalizedString(32016))
+                            report_error(e)
+                if not loginFailed and not cancelOperation(onedrive):
+                    try:
+                        progress_dialog.update(60, addon.getLocalizedString(32017))
+                        info = onedrive.get('/drive')
+                        onedrive.driveid = info['id']
+                    except Exception as e:
+                        loginFailed = True
+                        progress_dialog.close()
+                        pg_created = False
+                        if not cancelOperation(onedrive):
                             dialog.ok(addonname, addon.getLocalizedString(32018), utils.Utils.unicode(e), addon.getLocalizedString(32016))
                             report_error(e)
-                    if not cancelOperation(onedrive):
-                        if info is None:
-                            progress_dialog.close()
-                            pg_created = False
-                        else:
-                            try:
-                                progress_dialog.update(90, addon.getLocalizedString(32020))
-                                onedrive.driveid = info['id']
-                                onedrive.name = utils.Utils.ascii(info['owner']['user']['displayName'])
-                                if info['id'] not in onedrives:
-                                    config.add_section(onedrive.driveid)
-                                save_onedrive_config(config, onedrive)
-                                progress_dialog.close()
-                                pg_created = False
-                            except Exception as e:
-                                print e
-                                dialog.ok(addonname, addon.getLocalizedString(32021), utils.Utils.unicode(e), addon.getLocalizedString(32016))
-                                report_error(e)
-                xbmc.executebuiltin('Container.Refresh')
+                if not loginFailed and not cancelOperation(onedrive):
+                    try:
+                        progress_dialog.update(80, addon.getLocalizedString(32064))
+                        info = onedrive.get('/me')
+                        onedrive.name = utils.Utils.ascii(info['displayName'])
+                    except Exception as e:
+                        loginFailed = True
+                        progress_dialog.close()
+                        pg_created = False
+                        if not cancelOperation(onedrive):
+                            dialog.ok(addonname, addon.getLocalizedString(32065), utils.Utils.unicode(e), addon.getLocalizedString(32016))
+                            report_error(e)
+                if not loginFailed and not cancelOperation(onedrive):
+                    try:
+                        progress_dialog.update(95, addon.getLocalizedString(32020))
+                        if info['id'] not in onedrives:
+                            config.add_section(onedrive.driveid)
+                        save_onedrive_config(config, onedrive)
+                        progress_dialog.close()
+                        pg_created = False
+                    except Exception as e:
+                        progress_dialog.close()
+                        pg_created = False
+                        if not cancelOperation(onedrive):
+                            dialog.ok(addonname, addon.getLocalizedString(32021), utils.Utils.unicode(e), addon.getLocalizedString(32016))
+                            report_error(e)
+                if not loginFailed and not cancelOperation(onedrive):
+                    xbmc.executebuiltin('Container.Refresh')
             else:
                 progress_dialog.close()
                 pg_created = False
@@ -420,33 +436,38 @@ try:
         xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
         list_item = xbmcgui.ListItem(addon.getLocalizedString(32053))
         params['action'] = 'open_simple_folder'
-        params['folder'] = 'view.recent'
+        params['folder'] = 'recent'
         url = base_url + '?' + urllib.urlencode(params)
         xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
-        list_item = xbmcgui.ListItem(addon.getLocalizedString(32055))
-        params['action'] = 'open_drive_folder'
-        params['folder'] = 'special/photos'
-        url = base_url + '?' + urllib.urlencode(params)
-        xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
-        list_item = xbmcgui.ListItem(addon.getLocalizedString(32056))
-        params['folder'] = 'special/music'
-        url = base_url + '?' + urllib.urlencode(params)
-        xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
-        list_item = xbmcgui.ListItem(addon.getLocalizedString(32057))
-        params['action'] = 'open_simple_folder'
-        params['folder'] = 'shared'
-        url = base_url + '?' + urllib.urlencode(params)
-        xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
+        if content_type == 'image':
+            list_item = xbmcgui.ListItem(addon.getLocalizedString(32055))
+            params['action'] = 'open_drive_folder'
+            params['folder'] = 'special/photos'
+            url = base_url + '?' + urllib.urlencode(params)
+            xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
+        if content_type == 'audio':
+            list_item = xbmcgui.ListItem(addon.getLocalizedString(32056))
+            params['action'] = 'open_drive_folder'
+            params['folder'] = 'special/music'
+            url = base_url + '?' + urllib.urlencode(params)
+            xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
+        #list_item = xbmcgui.ListItem(addon.getLocalizedString(32057))
+        #params['action'] = 'open_simple_folder'
+        #params['folder'] = 'shared'
+        #url = base_url + '?' + urllib.urlencode(params)
+        #xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
         list_item = xbmcgui.ListItem(addon.getLocalizedString(32058))
         params['action'] = 'open_shared_with_me'
+        params['folder'] = ''
         url = base_url + '?' + urllib.urlencode(params)
         xbmcplugin.addDirectoryItem(addon_handle, url, list_item, True)
         xbmcplugin.endOfDirectory(addon_handle)
     elif action[0] == 'open_drive_folder':
         driveid = args.get('driveid')[0]
         onedrive = get_onedrive(driveid)
+        item_driveid = args.get('item_driveid', [driveid])[0]
         folder = args.get('folder')[0]
-        root = onedrive.get('/drive/' + folder, params=extra_parameters)
+        root = onedrive.get('/drives/'+item_driveid+'/' + folder, params=extra_parameters)
         if not cancelOperation(onedrive):
             child_count = int(root['folder']['childCount'])
             big_folder = child_count > big_folder_min
@@ -456,7 +477,7 @@ try:
                 progress_dialog_bg.create(addonname, addon.getLocalizedString(32049) % utils.Utils.str(child_count))
                 pg_bg_created = True
                 progress_dialog_bg.update(0)
-            files = onedrive.get('/drive/' + folder + '/children', params=extra_parameters)
+            files = onedrive.get('/drives/'+item_driveid+'/' + folder + '/children', params=extra_parameters)
             if not cancelOperation(onedrive):
                 process_files(files, driveid, child_count, 0, big_folder)
             if not cancelOperation(onedrive):
@@ -467,11 +488,12 @@ try:
     elif action[0] == 'open_simple_folder':
         driveid = args.get('driveid')[0]
         onedrive = get_onedrive(driveid)
+        item_driveid = args.get('item_driveid', [driveid])[0]
         folder = args.get('folder')[0]
-        extra_parameters['select'] = 'id,name,size,file,folder,audio,video,image,photo,@content.downloadUrl,@odata.nextLink,remoteItem'
-        if folder == 'view.recent':
+        extra_parameters['select'] = 'id,name,size,file,folder,audio,video,image,photo,@microsoft.graph.downloadUrl,@odata.nextLink,remoteItem'
+        if folder == 'recent':
             extra_parameters['expand'] = ''
-        files = onedrive.get('/drive/' + folder, params = extra_parameters)
+        files = onedrive.get('/drives/'+item_driveid+'/' + folder, params = extra_parameters)
         if not cancelOperation(onedrive):
             process_files(files, driveid, 0, 0, False)
         if not cancelOperation(onedrive):
@@ -479,11 +501,11 @@ try:
     elif action[0] == 'open_shared_with_me':
         driveid = args.get('driveid')[0]
         onedrive = get_onedrive(driveid)
-        files = onedrive.get('/drive/view.sharedWithMe')
+        files = onedrive.get('/drives/'+driveid+'/sharedWithMe')
         user_dic = {}
         if not cancelOperation(onedrive):
             for f in files['value']:
-                remote_user = utils.Utils.get_safe_value(utils.Utils.get_safe_value(utils.Utils.get_safe_value(f['remoteItem'], 'shared', {}), 'owner', {}), 'user');
+                remote_user = utils.Utils.get_safe_value(utils.Utils.get_safe_value(f['remoteItem'], 'createdBy', {}), 'user', {})
                 if remote_user is not None:
                     remote_user_id = utils.Utils.unicode(remote_user['id'])
                     if remote_user_id not in user_dic:
@@ -510,6 +532,7 @@ try:
             xbmcplugin.endOfDirectory(addon_handle)
     elif action[0] == 'open_folder':
         driveid = args.get('driveid')[0]
+        item_driveid = args.get('item_driveid', [driveid])[0]
         item_id = args.get('item_id')[0]
         onedrive = get_onedrive(driveid)
         child_count = 0 if 'child_count' not in args else int(args.get('child_count')[0])
@@ -520,7 +543,7 @@ try:
             progress_dialog_bg.create(addonname, addon.getLocalizedString(32049) % utils.Utils.str(child_count))
             pg_bg_created = True
             progress_dialog_bg.update(0)
-        files = onedrive.get('/drive/items/'+item_id+'/children', params=extra_parameters )
+        files = onedrive.get('/drives/'+item_driveid+'/items/'+item_id+'/children', params=extra_parameters )
         if not cancelOperation(onedrive):
             process_files(files, driveid, child_count, 0, big_folder)
         if not cancelOperation(onedrive):
@@ -533,6 +556,7 @@ try:
             dialog.ok(addonname, addon.getLocalizedString(32059) + ' ' + addon.getLocalizedString(32038))
         else:
             driveid = args.get('driveid')[0]
+            item_driveid = args.get('item_driveid', [driveid])[0]
             item_id = args.get('item_id')[0]
             onedrive = get_onedrive(driveid)
             string_id = 32002 if content_type == 'audio' else 32001
@@ -545,7 +569,7 @@ try:
                 export_pg_bg_created = True
                 export_progress_dialog_bg.update(0)
                 addon.setSetting(string_config, path)
-                f = onedrive.get('/drive/items/'+item_id)
+                f = onedrive.get('/drives/'+item_driveid+'/items/'+item_id)
                 if not cancelOperation(onedrive):
                     onedrive.exporting_target = int(f['folder']['childCount']) + 1
                     name = utils.Utils.unicode(f['name']).encode('ascii', 'ignore')
@@ -554,7 +578,7 @@ try:
                         xbmcvfs.rmdir(root)
                     onedrive.exporting = True
                     addon.setSetting('exporting','true')
-                    export_folder(name, item_id, driveid, path, root)
+                    export_folder(name, item_driveid, item_id, driveid, path, root)
             else:
                 dialog.ok(addonname, path + ' ' + addon.getLocalizedString(32026))
     elif action[0] == 'show_image':
@@ -562,9 +586,10 @@ try:
         xbmc.executebuiltin('ShowPicture('+url+')')
     elif action[0] == 'slideshow':
         driveid = args.get('driveid')[0]
+        item_driveid = args.get('item_driveid', [driveid])[0]
         item_id = args.get('item_id')[0]
         child_count = int(args.get('child_count')[0])
-        start_auto_refreshed_slideshow(driveid, item_id, -1)
+        start_auto_refreshed_slideshow(driveid, item_driveid, item_id, -1)
     elif action[0] == 'search':
         url = '/drive'
         driveid = args.get('driveid')[0]
@@ -603,11 +628,12 @@ try:
         xbmcplugin.endOfDirectory(addon_handle)
     elif action[0] == 'play':
         driveid = args.get('driveid')[0]
+        item_driveid = args.get('item_driveid', [driveid])[0]
         item_id = args.get('item_id')[0]
         onedrive = get_onedrive(driveid)
-        f = onedrive.get('/drive/items/'+item_id)
+        f = onedrive.get('/drives/'+item_driveid+'/items/'+item_id)
         if not cancelOperation(onedrive):
-            url = f['@content.downloadUrl']
+            url = f['@microsoft.graph.downloadUrl']
             http_service_url = 'http://localhost:' + addon.getSetting('http.service.port') + '/' + item_id
             try:
                 req = urllib2.Request(http_service_url, data='')
@@ -633,7 +659,7 @@ try:
                 try:
                     subtitle = onedrive.get(subtitle_path, retry=False)
                     if not cancelOperation(onedrive):
-                        list_item.setSubtitles([subtitle['@content.downloadUrl']])
+                        list_item.setSubtitles([subtitle['@microsoft.graph.downloadUrl']])
                     progress_dialog_bg.update(100, addonname, addon.getLocalizedString(32061))
                 except Exception as e:
                     progress_dialog_bg.update(100, addonname, addon.getLocalizedString(32062))
@@ -669,7 +695,7 @@ except Exception as e:
                     if dialog.yesno(addonname, addon.getLocalizedString(32046) % '\n'):
                         xbmc.executebuiltin('RunPlugin('+base_url + '?' + urllib.urlencode({'action':'add_account', 'content_type': content_type})+')')
                         selection = True
-                elif ex.code == 403 and requested_url is not None and ('view.sharedWithMe' in requested_url or 'view.recent' in requested_url):
+                elif ex.code == 403 and requested_url is not None and ('sharedWithMe' in requested_url or 'recent' in requested_url):
                     report = False
                 else:
                     dialog.ok(addonname, addon.getLocalizedString(32036), addon.getLocalizedString(32038))
