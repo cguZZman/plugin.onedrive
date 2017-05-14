@@ -42,7 +42,7 @@ class OneDrive:
     _login_url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
     _redirect_uri = 'https://login.microsoftonline.com/common/oauth2/nativeclient'
     _api_url = 'https://graph.microsoft.com/v1.0'
-    _signin_url = 'http://localhost:8080/onedrive/service.jsp'
+    _signin_url = 'http://onedrive.daro.mx/service.jsp'
     exporting_count = 0
     exporting_target = 0
     exporting_percent = 0
@@ -74,18 +74,18 @@ class OneDrive:
                 raise OneDriveException(Exception('login', 'No authorization code or refresh token provided.'), None, 'login method', str(data))
         else:
             data = self._get_login_request_data('authorization_code', code)
-        xbmc.log('Login requested...', xbmc.LOGNOTICE)
+        xbmc.log('Login requested...', xbmc.LOGDEBUG)
         jsonResponse = self.post(self._login_url, params=data, raw_url=True)
         if not self.cancelOperation():
             if 'error' in jsonResponse:
                 raise OneDriveException(Exception('login', utils.Utils.str(jsonResponse['error']), utils.Utils.str(jsonResponse['error_description'])), None, 'response of login', str(jsonResponse))
             else:
-                xbmc.log('Saving tokens...', xbmc.LOGNOTICE)
+                xbmc.log('Saving tokens...', xbmc.LOGDEBUG)
                 self.access_token = jsonResponse['access_token']
                 self.refresh_token = jsonResponse['refresh_token']
                 if not self.event_listener is None:
                     self.event_listener(self, 'login_success', jsonResponse)
-                xbmc.log('Login done.', xbmc.LOGNOTICE)
+                xbmc.log('Login done.', xbmc.LOGDEBUG)
     
     def _get_login_request_data(self, grant_type, code=None):
         data = {
@@ -113,19 +113,19 @@ class OneDrive:
     def request(self, method, path, params=None, raw_url=False, retry=True):
         url_params = '' if params is None else urllib.urlencode(params)
         url = self.get_url(method, path, url_params) if not raw_url else path
-        xbmc.log('URL request: ' + url, xbmc.LOGNOTICE)
+        xbmc.log('URL request: ' + url, xbmc.LOGDEBUG)
         headers = {'Authorization': 'bearer ' + self.access_token}
         try:
             if not self.cancelOperation():
                 data = None if method == 'get' else url_params
-                xbmc.log('URL data: ' + utils.Utils.str(data), xbmc.LOGNOTICE)
-                xbmc.log('URL headers: ' + utils.Utils.str(headers), xbmc.LOGNOTICE)
+                xbmc.log('URL data: ' + utils.Utils.str(data), xbmc.LOGDEBUG)
+                xbmc.log('URL headers: ' + utils.Utils.str(headers), xbmc.LOGDEBUG)
                 req = urllib2.Request(url, data, headers)
                 response = urllib2.urlopen(req).read()
             if not self.do_not_clean_counter:
                 self.failure_count = 0
             if not self.cancelOperation():
-                xbmc.log('URL response: ' + utils.Utils.str(response), xbmc.LOGNOTICE)
+                xbmc.log('URL response: ' + utils.Utils.str(response), xbmc.LOGDEBUG)
                 return json.loads(response)
             return {}
         except Exception as e:
@@ -166,6 +166,10 @@ class OneDrive:
                     origin = OneDriveHttpException(e)
                     try:
                         response = e.read()
+                        er = json.loads(response)
+                        if 'error' in er:
+                            error = er['error']
+                            origin.msg = utils.Utils.get_safe_value(error, 'code', 'Message') + ': ' + utils.Utils.get_safe_value(error, 'message', 'None')
                     except:
                         response = 'Error reading the body response!\n' + traceback.format_exc()
                 else:
@@ -191,6 +195,7 @@ class OneDriveException(Exception):
         self.body = body
 
 class OneDriveHttpException(urllib2.HTTPError):
+    msg = None
     def __init__(self, origin):
         self.code = origin.code
 

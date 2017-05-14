@@ -32,8 +32,7 @@ import urllib2
 import urlparse
 
 from resources.lib.api import utils
-from resources.lib.api.onedrive import OneDrive, OneDriveException, \
-    AccountNotFoundException
+from resources.lib.api.onedrive import OneDrive, OneDriveException, AccountNotFoundException
 import xbmc
 import xbmcaddon
 import xbmcgui
@@ -316,7 +315,7 @@ def export_folder(basename, item_driveid, item_id, driveid, destination_folder, 
         export_progress_dialog_bg.update(onedrive.exporting_percent, addonname + ' ' + addon.getLocalizedString(32024), file_path[len(base_folder):])
     if '@odata.nextLink' in files and not cancelOperation(onedrive):
         export_folder(basename, item_driveid, item_id, driveid, destination_folder, base_folder, files['@odata.nextLink'])
-
+    
 def report_error(e):
     tb = traceback.format_exc()
     if isinstance(e, OneDriveException):
@@ -327,12 +326,12 @@ def report_error(e):
         except Exception as e:
             tb += '\n--Exception trying build the report: --\n' + traceback.format_exc()
     tb += '\nVersion: %s' % addon.getAddonInfo('version')
-    xbmc.log(tb, xbmc.LOGNOTICE)
+    xbmc.log(tb, xbmc.LOGDEBUG)
     if addon.getSetting('report_error') == 'true':
         try:
             urllib2.urlopen('http://onedrive.daro.mx/report-error.jsp', urllib.urlencode({'stacktrace':tb})).read()
         except Exception as e:
-            xbmc.log(traceback.format_exc())
+            xbmc.log(traceback.format_exc(), xbmc.LOGDEBUG)
 try:
     if action is None:
         for driveid in onedrives:
@@ -574,11 +573,14 @@ try:
                     onedrive.exporting_target = int(f['folder']['childCount']) + 1
                     name = utils.Utils.unicode(f['name']).encode('ascii', 'ignore')
                     root = path + name + '/'
-                    if addon.getSetting('clean_folder') == 'true' and xbmcvfs.exists(root):
-                        xbmcvfs.rmdir(root)
-                    onedrive.exporting = True
-                    addon.setSetting('exporting','true')
-                    export_folder(name, item_driveid, item_id, driveid, path, root)
+                    deleted = True
+                    if addon.getSetting('clean_folder') == 'true' and xbmcvfs.exists(root) and not xbmcvfs.rmdir(root, True):
+                        deleted = False
+                        dialog.ok(addonname, addon.getLocalizedString(32066) % root)
+                    if not addon.getSetting('clean_folder') == 'true' or deleted:
+                        onedrive.exporting = True
+                        addon.setSetting('exporting','true')
+                        export_folder(name, item_driveid, item_id, driveid, path, root)
             else:
                 dialog.ok(addonname, path + ' ' + addon.getLocalizedString(32026))
     elif action[0] == 'show_image':
@@ -640,7 +642,7 @@ try:
                 req.add_header('download-url', url)
                 urllib2.urlopen(req).read()
             except Exception as e:
-                xbmc.log(traceback.format_exc(), xbmc.LOGNOTICE)
+                xbmc.log(traceback.format_exc(), xbmc.LOGDEBUG)
             
             list_item = xbmcgui.ListItem(utils.Utils.unicode(f['name']))
             set_info = set_audio_info if content_type == 'audio' else set_video_info
@@ -697,6 +699,7 @@ except Exception as e:
                         selection = True
                 elif ex.code == 403 and requested_url is not None and ('sharedWithMe' in requested_url or 'recent' in requested_url):
                     report = False
+                    dialog.ok(addonname, utils.Utils.str(ex), addon.getLocalizedString(32038))
                 else:
                     dialog.ok(addonname, addon.getLocalizedString(32036), addon.getLocalizedString(32038))
     elif isinstance(ex, AccountNotFoundException):
