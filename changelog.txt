@@ -1,4 +1,4 @@
-v1.2.0 released:
+v1.2.0 released - May 14, 2017:
 - Download subtitle fixed
 - Now supporting business accounts
 - xbmcvfs is used for disk operations

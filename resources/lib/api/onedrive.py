@@ -63,9 +63,10 @@ class OneDrive:
     def cancelOperation(self):
         return self.monitor.abortRequested()
     def begin_signin(self):
-        return self.get(self._signin_url, raw_url=True)['pin']
+        url = self._signin_url + '?' + urllib.urlencode({'version': 2})
+        return self.get(url, raw_url=True)['pin']
     def finish_signin(self, pin):
-        url = self._signin_url + '?' + urllib.urlencode({'action': 'code', 'pin': pin})
+        url = self._signin_url + '?' + urllib.urlencode({'action': 'code', 'pin': pin, 'version': 2})
         return self.get(url, raw_url=True)
     def login(self, code=None):
         if code is None:
@@ -106,12 +107,12 @@ class OneDrive:
         
     def get_url(self, method, path, params=None):
         url = self._api_url+self._make_path(path)
-        if method == 'get' and params is not None and params != '':
+        if method == 'get' and params:
             url = url + '?' + params
         return url
     
     def request(self, method, path, params=None, raw_url=False, retry=True):
-        url_params = '' if params is None else urllib.urlencode(params)
+        url_params = '' if not params else urllib.urlencode(params)
         url = self.get_url(method, path, url_params) if not raw_url else path
         xbmc.log('URL request: ' + url, xbmc.LOGDEBUG)
         headers = {'Authorization': 'bearer ' + self.access_token}

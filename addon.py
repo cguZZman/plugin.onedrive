@@ -170,7 +170,7 @@ def process_files(files, driveid, child_count, child_loaded, big_folder):
             context_options.append((addon.getLocalizedString(32039), cmd))
             list_item.addContextMenuItems(context_options)
         elif (('video' in f or extension in ext_videos) and content_type == 'video') or (('audio' in f or extension in ext_audio) and content_type == 'audio'):
-            params = {'action':'play', 'content_type': content_type, 'item_driveid': item_driveid, 'item_id': item_id, 'driveid': driveid, 'item_driveid' : item_driveid}
+            params = {'action':'play', 'content_type': content_type, 'item_driveid': item_driveid, 'item_id': item_id, 'driveid': driveid}
             url = base_url + '?' + urllib.urlencode(params)
             set_info = set_audio_info if content_type == 'audio' else set_video_info
             set_info(list_item, f)
@@ -273,7 +273,7 @@ def close_dialog_timeout(dialog, timeout):
 
 def export_folder(basename, item_driveid, item_id, driveid, destination_folder, base_folder, directLink=None):
     onedrive = get_onedrive(driveid)
-    parent_folder = destination_folder + basename + '/'
+    parent_folder = os.path.join(os.path.join(destination_folder, basename), '')
     if not xbmcvfs.exists(parent_folder):
         try:
             xbmcvfs.mkdirs(parent_folder)
@@ -304,14 +304,14 @@ def export_folder(basename, item_driveid, item_id, driveid, destination_folder, 
         elif (('video' in f or extension in ext_videos) and content_type == 'video') or ('audio' in f and content_type == 'audio'):
             params = {'action':'play', 'content_type': content_type, 'item_driveid': item_driveid, 'item_id': f['id'], 'driveid': driveid}
             url = base_url + '?' + urllib.urlencode(params)
-            f = xbmcvfs.File(parent_folder + name + '.strm', 'w')
+            f = xbmcvfs.File(os.path.join(parent_folder, name + '.strm'), 'w')
             f.write(url)
             f.close()
         onedrive.exporting_count += 1
         p = int(onedrive.exporting_count/float(onedrive.exporting_target)*100)
         if onedrive.exporting_percent < p:
             onedrive.exporting_percent = p
-        file_path = parent_folder + name
+        file_path = os.path.join(parent_folder, name)
         export_progress_dialog_bg.update(onedrive.exporting_percent, addonname + ' ' + addon.getLocalizedString(32024), file_path[len(base_folder):])
     if '@odata.nextLink' in files and not cancelOperation(onedrive):
         export_folder(basename, item_driveid, item_id, driveid, destination_folder, base_folder, files['@odata.nextLink'])
@@ -355,7 +355,7 @@ try:
     elif action[0] == 'add_account':
         progress_dialog.create(addonname, addon.getLocalizedString(32008))
         pg_created = True
-        onedrive = OneDrive(addon.getSetting('client_id'))
+        onedrive = OneDrive(addon.getSetting('client_id_oauth2'))
         pin = utils.Utils.str(onedrive.begin_signin())
         progress_dialog.close()
         pg_created = False
