@@ -1,5 +1,8 @@
-v1.1.13 released - Pending:
-- Download subtitle fixed. 
+v1.2.0 released:
+- Download subtitle fixed
+- Now supporting business accounts
+- xbmcvfs is used for disk operations
+-------------------------- 
 v1.1.12 released - Dec 16, 2016:
 - Minor fixes
 --------------------------

@@ -133,7 +133,7 @@ msgid "Unable to move your previous accounts information file. Please move it ma
 msgstr ""
 
 msgctxt "#32029"
-msgid "Need help? Go to the forum: http://onedrive.daro.mx/forum"
+msgid "Need help? Go to the forum and post a message in: http://onedrive.daro.mx/forum"
 msgstr ""
 
 msgctxt "#32030"
@@ -280,3 +280,6 @@ msgctxt "#32065"
 msgid "Unable to retrieve the owner information:"
 msgstr ""
 
+msgctxt "#32066"
+msgid "Unable to remove previous files and folders in %s"
+msgstr ""
