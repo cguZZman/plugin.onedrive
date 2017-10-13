@@ -3,6 +3,7 @@
 	<name>onedrive-kodi-addon</name>
 	<comment></comment>
 	<projects>
+		<project>clouddrive-common-kodi-module</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

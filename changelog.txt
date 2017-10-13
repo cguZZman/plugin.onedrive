@@ -1,3 +1,6 @@
+v2.0.0 released - Sept XX, 2017:
+- Remake
+
 v1.3.2 released - Aug 14, 2017:
 - Fix search
 - Kodi from Windows Store compatibility 
