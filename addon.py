@@ -41,15 +41,26 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
     def get_provider(self):
         return self._provider
     
-    def get_folder_items(self):
-        driveid = self._addon_params.get('driveid', [None])[0]
-        item_id = self._addon_params.get('item_id', [None])[0]
+    def get_folder_items(self, driveid=None, item_driveid=None, item_id=None, folder=None):
+        self._provider.configure(self._account_manager, driveid)
         if item_id:
-            item_driveid = self._addon_params.get('item_driveid', [driveid])[0]
             files = self._provider.get('/drives/'+item_driveid+'/items/' + item_id + '/children', parameters = self._extra_parameters)
         else:
-            folder = self._addon_params.get('folder', [None])[0]
             files = self._provider.get('/drives/'+driveid+'/' + folder + '/children', parameters = self._extra_parameters)
+        if self.cancel_operation():
+            return
+        return self.process_files(files)
+    
+    def search(self, query, driveid=None, item_driveid=None, item_id=None):
+        self._provider.configure(self._account_manager, driveid)
+        url = '/drives/'
+        if item_id:
+            url += item_driveid+'/items/' + item_id
+        else:
+            url += driveid
+        url += '/search(q=\'{'+urllib.quote(query)+'}\')'
+        self._extra_parameters['filter'] = 'file ne null'
+        files = self._provider.get(url, parameters = self._extra_parameters)
         if self.cancel_operation():
             return
         return self.process_files(files)
@@ -60,7 +71,7 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
             f = Utils.get_safe_value(f, 'remoteItem', f)
             item = self._extract_item(f)
             cache_key = self._addon_id+'-'+'item-'+item['drive_id']+'-'+item['id']
-            self._cache.set(cache_key, f, expiration=datetime.timedelta(seconds=30))
+            self._cache.set(cache_key, f, expiration=datetime.timedelta(minutes=1))
             items.append(item)
         if '@odata.nextLink' in files:
             next_files = self._provider.get(files['@odata.nextLink'])
@@ -78,7 +89,9 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
             'mimetype' : Utils.get_safe_value(Utils.get_safe_value(f, 'file', {}), 'mimeType')
         }
         if 'folder' in f:
-            item['folder'] = {}
+            item['folder'] = {
+                'child_count' : f['folder']['childCount']
+            }
         if 'video' in f:
             video = f['video']
             item['video'] = {
@@ -104,7 +117,7 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
             }
         if 'thumbnails' in f and len(f['thumbnails']) > 0:
             thumbnails = f['thumbnails'][0]
-            item['thumbnails'] = thumbnails['large']['url']
+            item['thumbnail'] = thumbnails['large']['url']
         if include_download_info:
             item['download_info'] =  {
                 'url' : Utils.get_safe_value(f,'@microsoft.graph.downloadUrl'),
@@ -120,7 +133,7 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
         f = self._cache.get(cache_key)
         if not f :
             f = self._provider.get('/drives/'+item_driveid+'/items/' + item_id, parameters = self._extra_parameters)
-            self._cache.set(cache_key, f, expiration=datetime.timedelta(seconds=30))
+            self._cache.set(cache_key, f, expiration=datetime.timedelta(minutes=1))
         item = self._extract_item(f, include_download_info)
         if find_subtitles:
             subtitles = []

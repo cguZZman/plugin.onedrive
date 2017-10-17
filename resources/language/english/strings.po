@@ -17,5 +17,29 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgctxt "#32000"
-msgid ""
+msgid "Account"
+msgstr ""
+
+msgctxt "#32001"
+msgid "Video Library Export Folder"
+msgstr ""
+
+msgctxt "#32002"
+msgid "Music Library Export Folder"
+msgstr ""
+
+msgctxt "#32003"
+msgid "Before export to library, remove previous files and folders"
+msgstr ""
+
+msgctxt "#32004"
+msgid "When playing videos, set the subtitle file located next to the video (.srt)"
+msgstr ""
+
+msgctxt "#32005"
+msgid "Auto-Refreshed slideshow"
+msgstr ""
+
+msgctxt "#32006"
+msgid "Refresh interval in minutes"
 msgstr ""
