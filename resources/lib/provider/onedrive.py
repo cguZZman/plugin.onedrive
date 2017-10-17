@@ -29,19 +29,19 @@ class OneDrive(Provider):
     def __init__(self):
         super(OneDrive, self).__init__('onedrive')
         
-    def _api_url(self):
+    def _get_api_url(self):
         return self.__api_url
 
-    def _request_headers(self):
+    def _get_request_headers(self):
         return None
     
-    def retrieve_account(self, request_params={}, access_tokens={}):
+    def get_account(self, request_params={}, access_tokens={}):
         me = self.get('/me', request_params=request_params, access_tokens=access_tokens)
         if not me:
             raise Exception('NoAccountInfo')
         return { 'id' : me['id'], 'name' : me['displayName']}
     
-    def retrieve_drives(self, request_params={}, access_tokens={}):
+    def get_drives(self, request_params={}, access_tokens={}):
         response = self.get('/drives', request_params=request_params, access_tokens=access_tokens)
         drives = []
         drives_id_list  =[]
@@ -64,7 +64,7 @@ class OneDrive(Provider):
                 })
         return drives
     
-    def drive_type_name(self, drive_type):
+    def get_drive_type_name(self, drive_type):
         if drive_type == 'personal':
             return 'OneDrive Personal'
         if drive_type == 'business':

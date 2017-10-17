@@ -595,7 +595,7 @@ try:
         f = onedrive.get('/drives/'+item_driveid+'/items/'+item_id)
         if not cancelOperation(onedrive):
             url = f['@microsoft.graph.downloadUrl']
-            http_service_url = 'http://localhost:' + addon.getSetting('download.service.port') + '/' + item_id
+            http_service_url = 'http://localhost:' + addon.getSetting('download.sourceservice.port') + '/' + item_id
             try:
                 req = urllib2.Request(http_service_url, data='')
                 req.add_header('download-url', url)
