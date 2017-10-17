@@ -25,6 +25,7 @@ from clouddrive.common.utils import Utils
 from resources.lib.provider.onedrive import OneDrive
 import datetime
 from clouddrive.common.cache.simplecache import SimpleCache
+import urllib
 
 
 class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
@@ -124,7 +125,7 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
         if find_subtitles:
             subtitles = []
             parent_id = Utils.get_safe_value(Utils.get_safe_value(f, 'parentReference', {}), 'id')
-            search_url = '/drives/'+item_driveid+'/items/' + parent_id + '/search(q=\'{'+Utils.remove_extension(item['name'])+'}\')'
+            search_url = '/drives/'+item_driveid+'/items/' + parent_id + '/search(q=\'{'+urllib.quote(Utils.remove_extension(item['name']))+'}\')'
             files = self._provider.get(search_url)
             for f in files['value']:
                 subtitle = self._extract_item(f, include_download_info)
