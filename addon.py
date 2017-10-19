@@ -41,31 +41,45 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
     def get_provider(self):
         return self._provider
     
-    def get_folder_items(self, driveid=None, item_driveid=None, item_id=None, folder=None):
+    def get_custom_drive_folders(self, driveid=None):
+        drive_folders = [
+            {'name' : self._common_addon.getLocalizedString(32058), 'folder' : 'sharedWithMe'},
+            {'name' : self._common_addon.getLocalizedString(32053), 'folder' : 'recent'}
+        ]
+        if self._content_type == 'image':
+            drive_folders.append({'name' : self._addon.getLocalizedString(32007), 'folder' : 'special/photos'})
+            drive_folders.append({'name' : self._addon.getLocalizedString(32008), 'folder' : 'special/cameraroll'})
+        elif self._content_type == 'audio':
+            drive_folders.append({'name' : self._addon.getLocalizedString(32009), 'folder' : 'special/music'})
+        return drive_folders
+
+    def get_folder_items(self, driveid=None, item_driveid=None, item_id=None, folder=None, on_items_page_completed=None):
         self._provider.configure(self._account_manager, driveid)
         if item_id:
             files = self._provider.get('/drives/'+item_driveid+'/items/' + item_id + '/children', parameters = self._extra_parameters)
+        elif folder == 'sharedWithMe' or folder == 'recent':
+            files = self._provider.get('/drives/'+driveid+'/' + folder)
         else:
             files = self._provider.get('/drives/'+driveid+'/' + folder + '/children', parameters = self._extra_parameters)
         if self.cancel_operation():
             return
-        return self.process_files(files)
+        return self.process_files(files, on_items_page_completed)
     
-    def search(self, query, driveid=None, item_driveid=None, item_id=None):
+    def search(self, query, driveid=None, item_driveid=None, item_id=None, on_items_page_completed=None):
         self._provider.configure(self._account_manager, driveid)
         url = '/drives/'
         if item_id:
             url += item_driveid+'/items/' + item_id
         else:
             url += driveid
-        url += '/search(q=\'{'+urllib.quote(query)+'}\')'
+        url += '/search(q=\''+urllib.quote(query)+'\')'
         self._extra_parameters['filter'] = 'file ne null'
         files = self._provider.get(url, parameters = self._extra_parameters)
         if self.cancel_operation():
             return
-        return self.process_files(files)
+        return self.process_files(files, on_items_page_completed)
     
-    def process_files(self, files):
+    def process_files(self, files, on_items_page_completed=None):
         items = []
         for f in files['value']:
             f = Utils.get_safe_value(f, 'remoteItem', f)
@@ -73,11 +87,13 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
             cache_key = self._addon_id+'-'+'item-'+item['drive_id']+'-'+item['id']
             self._cache.set(cache_key, f, expiration=datetime.timedelta(minutes=1))
             items.append(item)
+        if on_items_page_completed:
+            on_items_page_completed(items)
         if '@odata.nextLink' in files:
             next_files = self._provider.get(files['@odata.nextLink'])
             if self.cancel_operation():
                 return
-            items.extend(self.process_files(next_files))
+            items.extend(self.process_files(next_files, on_items_page_completed))
         return items
     
     def _extract_item(self, f, include_download_info=False):
@@ -127,13 +143,18 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
             }
         return item
     
-    def get_item(self, driveid, item_driveid, item_id, find_subtitles=False, include_download_info=False):
+    def get_item(self, driveid=None, item_driveid=None, item_id=None, folder=None, find_subtitles=False, include_download_info=False):
         self._provider.configure(self._account_manager, driveid)
-        cache_key = self._addon_id+'-'+'item-'+item_driveid+'-'+item_id
+        cache_key = self._addon_id+'-'+'item-'+Utils.str(item_driveid)+'-'+Utils.str(item_id)+'-'+Utils.str(folder)
         f = self._cache.get(cache_key)
         if not f :
-            f = self._provider.get('/drives/'+item_driveid+'/items/' + item_id, parameters = self._extra_parameters)
-            self._cache.set(cache_key, f, expiration=datetime.timedelta(minutes=1))
+            if item_id:
+                f = self._provider.get('/drives/'+item_driveid+'/items/' + item_id, parameters = self._extra_parameters)
+            elif folder == 'sharedWithMe' or folder == 'recent':
+                return
+            else:
+                f = self._provider.get('/drives/'+driveid+'/' + folder, parameters = self._extra_parameters)
+            self._cache.set(cache_key, f, expiration=datetime.timedelta(seconds=59))
         item = self._extract_item(f, include_download_info)
         if find_subtitles:
             subtitles = []

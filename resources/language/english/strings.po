@@ -43,3 +43,15 @@ msgstr ""
 msgctxt "#32006"
 msgid "Refresh interval in minutes"
 msgstr ""
+
+msgctxt "#32007"
+msgid "Special: Photos"
+msgstr ""
+
+msgctxt "#32008"
+msgid "Special: Camera Roll"
+msgstr ""
+
+msgctxt "#32009"
+msgid "Special: Music"
+msgstr ""
