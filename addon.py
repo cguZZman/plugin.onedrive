@@ -19,16 +19,16 @@
     Created on Mar 1, 2015
     @author: Carlos Guzman (cguZZman) carlosguzmang@hotmail.com
 '''
-from clouddrive.common.messaging.listener import CloudDriveMessagingListerner
+import datetime
+import urllib
+
+from clouddrive.common.cache.simplecache import SimpleCache
 from clouddrive.common.ui.addon import CloudDriveAddon
 from clouddrive.common.utils import Utils
 from resources.lib.provider.onedrive import OneDrive
-import datetime
-from clouddrive.common.cache.simplecache import SimpleCache
-import urllib
 
 
-class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
+class OneDriveAddon(CloudDriveAddon):
     _provider = OneDrive()
     _extra_parameters = {'expand': 'thumbnails'}
     _cache = None
@@ -42,15 +42,25 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
         return self._provider
     
     def get_custom_drive_folders(self, driveid=None):
-        drive_folders = [
-            {'name' : self._common_addon.getLocalizedString(32058), 'folder' : 'sharedWithMe'},
-            {'name' : self._common_addon.getLocalizedString(32053), 'folder' : 'recent'}
-        ]
-        if self._content_type == 'image':
-            drive_folders.append({'name' : self._addon.getLocalizedString(32007), 'folder' : 'special/photos'})
-            drive_folders.append({'name' : self._addon.getLocalizedString(32008), 'folder' : 'special/cameraroll'})
-        elif self._content_type == 'audio':
-            drive_folders.append({'name' : self._addon.getLocalizedString(32009), 'folder' : 'special/music'})
+        self._account_manager.load()
+        drive = self._account_manager.get_drive_by_driveid(driveid)
+        drive_folders = []
+        if drive['type'] == 'personal':
+            if self._content_type == 'image':
+                folder = 'special/photos'
+                params = {'action': '_slideshow', 'content_type': self._content_type, 'driveid': driveid, 'folder': folder}
+                context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.urlencode(params)+')')]
+                drive_folders.append({'name' : self._addon.getLocalizedString(32007), 'folder' : folder, 'context_options': context_options})
+                
+                folder = 'special/cameraroll'
+                params['folder'] = folder
+                context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.urlencode(params)+')')]
+                drive_folders.append({'name' : self._addon.getLocalizedString(32008), 'folder' : folder, 'context_options': context_options})
+            elif self._content_type == 'audio':
+                drive_folders.append({'name' : self._addon.getLocalizedString(32009), 'folder' : 'special/music'})
+        drive_folders.append({'name' : self._common_addon.getLocalizedString(32053), 'folder' : 'recent'})
+        if drive['type'] != 'documentLibrary':
+            drive_folders.append({'name' : self._common_addon.getLocalizedString(32058), 'folder' : 'sharedWithMe'})
         return drive_folders
 
     def get_folder_items(self, driveid=None, item_driveid=None, item_id=None, folder=None, on_items_page_completed=None):
@@ -63,7 +73,7 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
             files = self._provider.get('/drives/'+driveid+'/' + folder + '/children', parameters = self._extra_parameters)
         if self.cancel_operation():
             return
-        return self.process_files(files, on_items_page_completed)
+        return self.process_files(driveid, files, on_items_page_completed)
     
     def search(self, query, driveid=None, item_driveid=None, item_id=None, on_items_page_completed=None):
         self._provider.configure(self._account_manager, driveid)
@@ -77,14 +87,14 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
         files = self._provider.get(url, parameters = self._extra_parameters)
         if self.cancel_operation():
             return
-        return self.process_files(files, on_items_page_completed)
+        return self.process_files(driveid, files, on_items_page_completed)
     
-    def process_files(self, files, on_items_page_completed=None):
+    def process_files(self, driveid, files, on_items_page_completed=None):
         items = []
         for f in files['value']:
             f = Utils.get_safe_value(f, 'remoteItem', f)
             item = self._extract_item(f)
-            cache_key = self._addon_id+'-'+'item-'+item['drive_id']+'-'+item['id']
+            cache_key = self._addon_id+'-drive-'+driveid+'-item_driveid-'+item['drive_id']+'-item_id-'+item['id']+'-folder-None'
             self._cache.set(cache_key, f, expiration=datetime.timedelta(minutes=1))
             items.append(item)
         if on_items_page_completed:
@@ -145,7 +155,7 @@ class OneDriveAddon(CloudDriveAddon, CloudDriveMessagingListerner):
     
     def get_item(self, driveid=None, item_driveid=None, item_id=None, folder=None, find_subtitles=False, include_download_info=False):
         self._provider.configure(self._account_manager, driveid)
-        cache_key = self._addon_id+'-'+'item-'+Utils.str(item_driveid)+'-'+Utils.str(item_id)+'-'+Utils.str(folder)
+        cache_key = self._addon_id+'-drive-'+driveid+'-item_driveid-'+Utils.str(item_driveid)+'-item_id-'+Utils.str(item_id)+'-folder-'+Utils.str(folder)
         f = self._cache.get(cache_key)
         if not f :
             if item_id:

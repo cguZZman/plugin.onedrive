@@ -55,3 +55,16 @@ msgstr ""
 msgctxt "#32009"
 msgid "Special: Music"
 msgstr ""
+
+msgctxt "#32010"
+msgid "Recursive auto-refreshed slideshow"
+msgstr ""
+
+msgctxt "#32011"
+msgid "Common Settings"
+msgstr ""
+
+msgctxt "#32012"
+msgid "Open Cloud Drive Common Settings..."
+msgstr ""
+
