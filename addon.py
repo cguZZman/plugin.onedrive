@@ -26,6 +26,7 @@ from clouddrive.common.cache.simplecache import SimpleCache
 from clouddrive.common.ui.addon import CloudDriveAddon
 from clouddrive.common.utils import Utils
 from resources.lib.provider.onedrive import OneDrive
+from clouddrive.common.ui.logger import Logger
 
 
 class OneDriveAddon(CloudDriveAddon):
@@ -41,41 +42,48 @@ class OneDriveAddon(CloudDriveAddon):
     def get_provider(self):
         return self._provider
     
-    def get_custom_drive_folders(self, driveid=None):
+    def get_custom_drive_folders(self, driveid):
         self._account_manager.load()
         drive = self._account_manager.get_drive_by_driveid(driveid)
         drive_folders = []
         if drive['type'] == 'personal':
             if self._content_type == 'image':
-                folder = 'special/photos'
-                params = {'action': '_slideshow', 'content_type': self._content_type, 'driveid': driveid, 'folder': folder}
+                path = 'special/photos'
+                params = {'action': '_slideshow', 'content_type': self._content_type, 'driveid': driveid, 'path': path}
                 context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.urlencode(params)+')')]
-                drive_folders.append({'name' : self._addon.getLocalizedString(32007), 'folder' : folder, 'context_options': context_options})
+                drive_folders.append({'name' : self._addon.getLocalizedString(32007), 'path' : path, 'context_options': context_options})
                 
-                folder = 'special/cameraroll'
-                params['folder'] = folder
+                path = 'special/cameraroll'
+                params['path'] = path
                 context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.urlencode(params)+')')]
-                drive_folders.append({'name' : self._addon.getLocalizedString(32008), 'folder' : folder, 'context_options': context_options})
+                drive_folders.append({'name' : self._addon.getLocalizedString(32008), 'path' : path, 'context_options': context_options})
             elif self._content_type == 'audio':
-                drive_folders.append({'name' : self._addon.getLocalizedString(32009), 'folder' : 'special/music'})
-        drive_folders.append({'name' : self._common_addon.getLocalizedString(32053), 'folder' : 'recent'})
+                drive_folders.append({'name' : self._addon.getLocalizedString(32009), 'path' : 'special/music'})
+        drive_folders.append({'name' : self._common_addon.getLocalizedString(32053), 'path' : 'recent'})
         if drive['type'] != 'documentLibrary':
-            drive_folders.append({'name' : self._common_addon.getLocalizedString(32058), 'folder' : 'sharedWithMe'})
+            drive_folders.append({'name' : self._common_addon.getLocalizedString(32058), 'path' : 'sharedWithMe'})
         return drive_folders
 
-    def get_folder_items(self, driveid=None, item_driveid=None, item_id=None, folder=None, on_items_page_completed=None):
+    def get_folder_items(self, driveid, item_driveid=None, item_id=None, path=None, on_items_page_completed=None):
         self._provider.configure(self._account_manager, driveid)
         if item_id:
             files = self._provider.get('/drives/'+item_driveid+'/items/' + item_id + '/children', parameters = self._extra_parameters)
-        elif folder == 'sharedWithMe' or folder == 'recent':
-            files = self._provider.get('/drives/'+driveid+'/' + folder)
+        elif path == 'sharedWithMe' or path == 'recent':
+            files = self._provider.get('/drives/'+driveid+'/' + path)
         else:
-            files = self._provider.get('/drives/'+driveid+'/' + folder + '/children', parameters = self._extra_parameters)
+            if path == '/':
+                path = 'root'
+            else:
+                parts = path.split('/')
+                Logger.debug(parts)
+                if len(parts) > 1:
+                    path = 'root:'+path+':'
+            files = self._provider.get('/drives/'+driveid+'/' + path + '/children', parameters = self._extra_parameters)
         if self.cancel_operation():
             return
         return self.process_files(driveid, files, on_items_page_completed)
     
-    def search(self, query, driveid=None, item_driveid=None, item_id=None, on_items_page_completed=None):
+    def search(self, query, driveid, item_driveid=None, item_id=None, on_items_page_completed=None):
         self._provider.configure(self._account_manager, driveid)
         url = '/drives/'
         if item_id:
@@ -94,7 +102,7 @@ class OneDriveAddon(CloudDriveAddon):
         for f in files['value']:
             f = Utils.get_safe_value(f, 'remoteItem', f)
             item = self._extract_item(f)
-            cache_key = self._addon_id+'-drive-'+driveid+'-item_driveid-'+item['drive_id']+'-item_id-'+item['id']+'-folder-None'
+            cache_key = self._addonid+'-drive-'+driveid+'-item_driveid-'+item['drive_id']+'-item_id-'+item['id']+'-path-None'
             self._cache.set(cache_key, f, expiration=datetime.timedelta(minutes=1))
             items.append(item)
         if on_items_page_completed:
@@ -112,7 +120,10 @@ class OneDriveAddon(CloudDriveAddon):
             'name': f['name'],
             'name_extension' : Utils.get_extension(f['name']),
             'drive_id' : Utils.get_safe_value(Utils.get_safe_value(f, 'parentReference', {}), 'driveId'),
-            'mimetype' : Utils.get_safe_value(Utils.get_safe_value(f, 'file', {}), 'mimeType')
+            'mimetype' : Utils.get_safe_value(Utils.get_safe_value(f, 'file', {}), 'mimeType'),
+            'last_modified_date' : f['lastModifiedDateTime'],
+            'size': Utils.get_safe_value(f, 'size', 0),
+            'description': Utils.get_safe_value(f, 'description', '')
         }
         if 'folder' in f:
             item['folder'] = {
@@ -153,17 +164,24 @@ class OneDriveAddon(CloudDriveAddon):
             }
         return item
     
-    def get_item(self, driveid=None, item_driveid=None, item_id=None, folder=None, find_subtitles=False, include_download_info=False):
+    def get_item(self, driveid, item_driveid=None, item_id=None, path=None, find_subtitles=False, include_download_info=False):
         self._provider.configure(self._account_manager, driveid)
-        cache_key = self._addon_id+'-drive-'+driveid+'-item_driveid-'+Utils.str(item_driveid)+'-item_id-'+Utils.str(item_id)+'-folder-'+Utils.str(folder)
+        cache_key = self._addonid+'-drive-'+driveid+'-item_driveid-'+Utils.str(item_driveid)+'-item_id-'+Utils.str(item_id)+'-path-'+Utils.str(path)
         f = self._cache.get(cache_key)
         if not f :
             if item_id:
                 f = self._provider.get('/drives/'+item_driveid+'/items/' + item_id, parameters = self._extra_parameters)
-            elif folder == 'sharedWithMe' or folder == 'recent':
+            elif path == 'sharedWithMe' or path == 'recent':
                 return
             else:
-                f = self._provider.get('/drives/'+driveid+'/' + folder, parameters = self._extra_parameters)
+                if path == '/':
+                    path = 'root'
+                else:
+                    parts = path.split('/')
+                    Logger.debug(parts)
+                    if len(parts) > 1:
+                        path = 'root:'+path+':'
+                f = self._provider.get('/drives/'+driveid+'/' + path, parameters = self._extra_parameters)
             self._cache.set(cache_key, f, expiration=datetime.timedelta(seconds=59))
         item = self._extract_item(f, include_download_info)
         if find_subtitles:
