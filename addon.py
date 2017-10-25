@@ -26,7 +26,6 @@ from clouddrive.common.cache.simplecache import SimpleCache
 from clouddrive.common.ui.addon import CloudDriveAddon
 from clouddrive.common.utils import Utils
 from resources.lib.provider.onedrive import OneDrive
-from clouddrive.common.ui.logger import Logger
 
 
 class OneDriveAddon(CloudDriveAddon):
@@ -75,7 +74,6 @@ class OneDriveAddon(CloudDriveAddon):
                 path = 'root'
             else:
                 parts = path.split('/')
-                Logger.debug(parts)
                 if len(parts) > 1:
                     path = 'root:'+path+':'
             files = self._provider.get('/drives/'+driveid+'/' + path + '/children', parameters = self._extra_parameters)
@@ -178,7 +176,6 @@ class OneDriveAddon(CloudDriveAddon):
                     path = 'root'
                 else:
                     parts = path.split('/')
-                    Logger.debug(parts)
                     if len(parts) > 1:
                         path = 'root:'+path+':'
                 f = self._provider.get('/drives/'+driveid+'/' + path, parameters = self._extra_parameters)

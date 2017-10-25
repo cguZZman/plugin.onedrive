@@ -19,10 +19,5 @@
     Created on Mar 1, 2015
     @author: Carlos Guzman (cguZZman) carlosguzmang@hotmail.com
 '''
-from addon import OneDriveAddon
-from clouddrive.common.service.messaging import MessagingService
-from clouddrive.common.service.base import BaseService
 
 
-if __name__ == '__main__':
-    BaseService.run([MessagingService(OneDriveAddon())])
