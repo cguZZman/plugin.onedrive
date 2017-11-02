@@ -19,6 +19,16 @@ Play all your media from OneDrive including Videos, Music and Pictures.
  - Use OneDrive as a source
  - This program is not affiliated with or sponsored by Microsoft.
 		</description>
+		<summary lang="he">כונן OneDrive של מיקרוסופט עבור קודי</summary>
+		<description lang="he">
+הפעל את כל המדיה שלך מ- OneDrive כולל וידאו, מוסיקה ותמונות.
+  - מספר בלתי מוגבל של חשבונות אישיים או עסקיים.
+  - חיפוש ומציאת הכונן שלך.
+  - ריענון מצגת אוטומטית.
+  - ייצוא קטעי הווידאו לספרייה שלך (קבצי .strm)
+  - שימוש ב-OneDrive כמקור
+  - תוכנית זו אינה מזוהה עם או בחסות מיקרוסופט.
+		</description>		
 		<license>GNU GENERAL PUBLIC LICENSE. Version 2, June 1991</license>
 		<source>https://github.com/cguZZman/onedrive-kodi-addon</source>
 		<forum>http://forum.kodi.tv/showthread.php?tid=228443</forum>
