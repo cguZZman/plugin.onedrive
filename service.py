@@ -19,5 +19,9 @@
     Created on Mar 1, 2015
     @author: Carlos Guzman (cguZZman) carlosguzmang@hotmail.com
 '''
+from clouddrive.common.service.utils import ServiceUtil
+from clouddrive.common.service.rpc import RpcService
+from addon import OneDriveAddon
 
-
+if __name__ == '__main__':
+    ServiceUtil.run([RpcService(OneDriveAddon())])
