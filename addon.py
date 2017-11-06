@@ -1,24 +1,22 @@
-'''
-    OneDrive for Kodi
-    Copyright (C) 2015 - Carlos Guzman
+#-------------------------------------------------------------------------------
+# Copyright (C) 2017 Carlos Guzman (cguZZman) carlosguzmang@protonmail.com
+# 
+# This file is part of OneDrive for Kodi
+# 
+# OneDrive for Kodi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Cloud Drive Common Module for Kodi is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#-------------------------------------------------------------------------------
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-    Created on Mar 1, 2015
-    @author: Carlos Guzman (cguZZman) carlosguzmang@hotmail.com
-'''
 import datetime
 import urllib
 
@@ -26,6 +24,8 @@ from clouddrive.common.cache.simplecache import SimpleCache
 from clouddrive.common.ui.addon import CloudDriveAddon
 from clouddrive.common.utils import Utils
 from resources.lib.provider.onedrive import OneDrive
+from clouddrive.common.ui.utils import KodiUtils
+from resources.lib.migration import MigrateAccounts
 
 
 class OneDriveAddon(CloudDriveAddon):
@@ -35,7 +35,6 @@ class OneDriveAddon(CloudDriveAddon):
     
     def __init__(self):
         self._cache = SimpleCache()
-        self._cache.enable_mem_cache = False
         super(OneDriveAddon, self).__init__()
         
     def get_provider(self):
@@ -65,6 +64,7 @@ class OneDriveAddon(CloudDriveAddon):
 
     def get_folder_items(self, driveid, item_driveid=None, item_id=None, path=None, on_items_page_completed=None):
         self._provider.configure(self._account_manager, driveid)
+        item_driveid = Utils.default(item_driveid, driveid)
         if item_id:
             files = self._provider.get('/drives/'+item_driveid+'/items/' + item_id + '/children', parameters = self._extra_parameters)
         elif path == 'sharedWithMe' or path == 'recent':
@@ -74,7 +74,7 @@ class OneDriveAddon(CloudDriveAddon):
                 path = 'root'
             else:
                 parts = path.split('/')
-                if len(parts) > 1:
+                if len(parts) > 1 and not parts[0]:
                     path = 'root:'+path+':'
             files = self._provider.get('/drives/'+driveid+'/' + path + '/children', parameters = self._extra_parameters)
         if self.cancel_operation():
@@ -83,6 +83,7 @@ class OneDriveAddon(CloudDriveAddon):
     
     def search(self, query, driveid, item_driveid=None, item_id=None, on_items_page_completed=None):
         self._provider.configure(self._account_manager, driveid)
+        item_driveid = Utils.default(item_driveid, driveid)
         url = '/drives/'
         if item_id:
             url += item_driveid+'/items/' + item_id
@@ -109,7 +110,7 @@ class OneDriveAddon(CloudDriveAddon):
             next_files = self._provider.get(files['@odata.nextLink'])
             if self.cancel_operation():
                 return
-            items.extend(self.process_files(next_files, on_items_page_completed))
+            items.extend(self.process_files(driveid, next_files, on_items_page_completed))
         return items
     
     def _extract_item(self, f, include_download_info=False):
@@ -119,7 +120,7 @@ class OneDriveAddon(CloudDriveAddon):
             'name_extension' : Utils.get_extension(f['name']),
             'drive_id' : Utils.get_safe_value(Utils.get_safe_value(f, 'parentReference', {}), 'driveId'),
             'mimetype' : Utils.get_safe_value(Utils.get_safe_value(f, 'file', {}), 'mimeType'),
-            'last_modified_date' : f['lastModifiedDateTime'],
+            'last_modified_date' : Utils.get_safe_value(f,'lastModifiedDateTime'),
             'size': Utils.get_safe_value(f, 'size', 0),
             'description': Utils.get_safe_value(f, 'description', '')
         }
@@ -164,6 +165,7 @@ class OneDriveAddon(CloudDriveAddon):
     
     def get_item(self, driveid, item_driveid=None, item_id=None, path=None, find_subtitles=False, include_download_info=False):
         self._provider.configure(self._account_manager, driveid)
+        item_driveid = Utils.default(item_driveid, driveid)
         cache_key = self._addonid+'-drive-'+driveid+'-item_driveid-'+Utils.str(item_driveid)+'-item_id-'+Utils.str(item_id)+'-path-'+Utils.str(path)
         f = self._cache.get(cache_key)
         if not f :
@@ -176,7 +178,7 @@ class OneDriveAddon(CloudDriveAddon):
                     path = 'root'
                 else:
                     parts = path.split('/')
-                    if len(parts) > 1:
+                    if len(parts) > 1 and not parts[0]:
                         path = 'root:'+path+':'
                 f = self._provider.get('/drives/'+driveid+'/' + path, parameters = self._extra_parameters)
             self._cache.set(cache_key, f, expiration=datetime.timedelta(seconds=59))
@@ -193,7 +195,19 @@ class OneDriveAddon(CloudDriveAddon):
             if subtitles:
                 item['subtitles'] = subtitles
         return item
+    
+    def _rename_action(self):
+        self._action = Utils.get_safe_value({
+            'open_folder': '_list_folder',
+            'open_drive': '_list_drive',
+        }, self._action, self._action)
 
 if __name__ == '__main__':
-    OneDriveAddon().route()
+    onedrive_addon = OneDriveAddon()
+    if not KodiUtils.get_addon_setting('migrated'):
+        try:
+            MigrateAccounts()
+        except Exception as e:
+            onedrive_addon._handle_exception(e, False)
+    onedrive_addon.route()
 

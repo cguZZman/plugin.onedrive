@@ -8,7 +8,6 @@
 		<provides>image audio video</provides>
 	</extension>
 	<extension point="xbmc.service" library="service.py" start="login" />
-	<extension point="xbmc.python.library" library="addon.py"/>
 	<extension point="xbmc.addon.metadata">
 		<platform>all</platform>
 		<summary lang="en">Microsoft OneDrive for KODI</summary>
@@ -31,9 +30,9 @@ Play all your media from OneDrive including Videos, Music and Pictures.
   - שימוש ב-OneDrive כמקור
   - תוכנית זו אינה מזוהה עם או בחסות מיקרוסופט.
 		</description>		
-		<license>GNU GENERAL PUBLIC LICENSE. Version 2, June 1991</license>
-		<source>https://github.com/cguZZman/onedrive-kodi-addon</source>
-		<forum>http://forum.kodi.tv/showthread.php?tid=228443</forum>
-		<website>http://onedrive.daro.mx/</website>
+		<license>GNU GENERAL PUBLIC LICENSE. Version 3, 29 June 2007</license>
+		<source>https://github.com/cguZZman/plugin.onedrive</source>
+		<forum>https://github.com/cguZZman/plugin.onedrive/issues</forum>
+		<website>https://addons.kodi.tv/show/plugin.onedrive</website>
 	</extension>
 </addon>
