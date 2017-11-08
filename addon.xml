@@ -10,8 +10,8 @@
 	<extension point="xbmc.service" library="service.py" start="login" />
 	<extension point="xbmc.addon.metadata">
 		<platform>all</platform>
-		<summary lang="en">Microsoft OneDrive for KODI</summary>
-		<description lang="en">
+		<summary lang="en_GB">Microsoft OneDrive for KODI</summary>
+		<description lang="en_GB">
 Play all your media from OneDrive including Videos, Music and Pictures.
  - Unlimited number of personal or business accounts.
  - Search over your drive.
@@ -20,8 +20,8 @@ Play all your media from OneDrive including Videos, Music and Pictures.
  - Use OneDrive as a source
  - This program is not affiliated with or sponsored by Microsoft.
 		</description>
-		<summary lang="he">כונן OneDrive של מיקרוסופט עבור קודי</summary>
-		<description lang="he">
+		<summary lang="he_IL">כונן OneDrive של מיקרוסופט עבור קודי</summary>
+		<description lang="he_IL">
 הפעל את כל המדיה שלך מ- OneDrive כולל וידאו, מוסיקה ותמונות.
   - מספר בלתי מוגבל של חשבונות אישיים או עסקיים.
   - חיפוש ומציאת הכונן שלך.
