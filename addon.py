@@ -151,9 +151,9 @@ class OneDriveAddon(CloudDriveAddon):
             item['image'] = {
                 'size' : Utils.get_safe_value(f, 'size', 0)
             }
-        if 'thumbnails' in f and len(f['thumbnails']) > 0:
+        if 'thumbnails' in f and type(f['thumbnails']) == list and len(f['thumbnails']) > 0:
             thumbnails = f['thumbnails'][0]
-            item['thumbnail'] = Utils.get_safe_value(Utils.get_safe_value(thumbnails, 'large', {}), 'url', ''),
+            item['thumbnail'] = Utils.get_safe_value(Utils.get_safe_value(thumbnails, 'large', {}), 'url', '')
         if include_download_info:
             item['download_info'] =  {
                 'url' : Utils.get_safe_value(f,'@microsoft.graph.downloadUrl'),
