@@ -126,14 +126,14 @@ class OneDriveAddon(CloudDriveAddon):
         }
         if 'folder' in f:
             item['folder'] = {
-                'child_count' : f['folder']['childCount']
+                'child_count' : Utils.get_safe_value(f['folder'],'childCount',0)
             }
         if 'video' in f:
             video = f['video']
             item['video'] = {
-                'width' : video['width'],
-                'height' : video['height'],
-                'duration' : video['duration']/1000
+                'width' : Utils.get_safe_value(video,'width', 0),
+                'height' : Utils.get_safe_value(video, 'height', 0),
+                'duration' : Utils.get_safe_value(video, 'duration', 0) /1000
             }
         if 'audio' in f:
             audio = f['audio']
@@ -149,11 +149,11 @@ class OneDriveAddon(CloudDriveAddon):
             }
         if 'image' in f or 'photo' in f:
             item['image'] = {
-                'size' : f['size']
+                'size' : Utils.get_safe_value(f, 'size', 0)
             }
         if 'thumbnails' in f and len(f['thumbnails']) > 0:
             thumbnails = f['thumbnails'][0]
-            item['thumbnail'] = thumbnails['large']['url']
+            item['thumbnail'] = Utils.get_safe_value(Utils.get_safe_value(thumbnails, 'large', {}), 'url', ''),
         if include_download_info:
             item['download_info'] =  {
                 'url' : Utils.get_safe_value(f,'@microsoft.graph.downloadUrl'),
