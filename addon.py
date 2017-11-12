@@ -156,10 +156,7 @@ class OneDriveAddon(CloudDriveAddon):
             item['thumbnail'] = Utils.get_safe_value(Utils.get_safe_value(thumbnails, 'large', {}), 'url', '')
         if include_download_info:
             item['download_info'] =  {
-                'url' : Utils.get_safe_value(f,'@microsoft.graph.downloadUrl'),
-                'headers' : {
-                    'authorization' : 'Bearer ' + self._provider.get_access_tokens()['access_token']
-                }
+                'url' : Utils.get_safe_value(f,'@microsoft.graph.downloadUrl')
             }
         return item
     
