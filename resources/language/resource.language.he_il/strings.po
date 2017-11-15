@@ -58,7 +58,7 @@ msgstr "מיוחד: מוסיקה"
 
 msgctxt "#32010"
 msgid "Recursive auto-refreshed slideshow"
-msgstr "רקורסיבית אוטומטי לרענן שקופיות"
+msgstr "רענן מצגת באופן רקורסיבי ואוטומטי"
 
 msgctxt "#32011"
 msgid "Common Settings"
