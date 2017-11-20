@@ -34,5 +34,10 @@ Play all your media from OneDrive including Videos, Music and Pictures.
 		<source>https://github.com/cguZZman/plugin.onedrive</source>
 		<forum>https://github.com/cguZZman/plugin.onedrive/issues</forum>
 		<website>https://addons.kodi.tv/show/plugin.onedrive</website>
+		<news>
+v2.0.0 released Nov 06, 2017:
+- Remake using script.module.clouddrive.common library
+- Fix OneDrive for Business functionality
+		</news>
 	</extension>
 </addon>
