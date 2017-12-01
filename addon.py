@@ -89,7 +89,7 @@ class OneDriveAddon(CloudDriveAddon):
             url += item_driveid+'/items/' + item_id
         else:
             url += driveid
-        url += '/search(q=\''+urllib.quote(query)+'\')'
+        url += '/search(q=\''+urllib.quote(Utils.str(query))+'\')'
         self._extra_parameters['filter'] = 'file ne null'
         files = self._provider.get(url, parameters = self._extra_parameters)
         if self.cancel_operation():
@@ -101,7 +101,7 @@ class OneDriveAddon(CloudDriveAddon):
         for f in files['value']:
             f = Utils.get_safe_value(f, 'remoteItem', f)
             item = self._extract_item(f)
-            cache_key = self._addonid+'-drive-'+driveid+'-item_driveid-'+item['drive_id']+'-item_id-'+item['id']+'-path-None'
+            cache_key = self._addonid+'-drive-'+driveid+'-item_driveid-'+Utils.str(item['drive_id'])+'-item_id-'+Utils.str(item['id'])+'-path-None'
             self._cache.set(cache_key, f, expiration=datetime.timedelta(minutes=1))
             items.append(item)
         if on_items_page_completed:
@@ -114,10 +114,11 @@ class OneDriveAddon(CloudDriveAddon):
         return items
     
     def _extract_item(self, f, include_download_info=False):
+        name = Utils.get_safe_value(f, 'name', '')
         item = {
             'id': f['id'],
-            'name': f['name'],
-            'name_extension' : Utils.get_extension(f['name']),
+            'name': name,
+            'name_extension' : Utils.get_extension(name),
             'drive_id' : Utils.get_safe_value(Utils.get_safe_value(f, 'parentReference', {}), 'driveId'),
             'mimetype' : Utils.get_safe_value(Utils.get_safe_value(f, 'file', {}), 'mimeType'),
             'last_modified_date' : Utils.get_safe_value(f,'lastModifiedDateTime'),
@@ -183,7 +184,7 @@ class OneDriveAddon(CloudDriveAddon):
         if find_subtitles:
             subtitles = []
             parent_id = Utils.get_safe_value(Utils.get_safe_value(f, 'parentReference', {}), 'id')
-            search_url = '/drives/'+item_driveid+'/items/' + parent_id + '/search(q=\'{'+urllib.quote(Utils.remove_extension(item['name']))+'}\')'
+            search_url = '/drives/'+item_driveid+'/items/' + parent_id + '/search(q=\''+urllib.quote(Utils.str(Utils.remove_extension(item['name'])).replace("'","''"))+'\')'
             files = self._provider.get(search_url)
             for f in files['value']:
                 subtitle = self._extract_item(f, include_download_info)
@@ -194,9 +195,12 @@ class OneDriveAddon(CloudDriveAddon):
         return item
     
     def _rename_action(self):
+        if self._action == 'open_drive_folder':
+            self._addon_params['path'] = Utils.get_safe_value(self._addon_params, 'folder')
         self._action = Utils.get_safe_value({
             'open_folder': '_list_folder',
             'open_drive': '_list_drive',
+            'open_drive_folder': '_list_folder'
         }, self._action, self._action)
 
 if __name__ == '__main__':

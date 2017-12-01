@@ -19,6 +19,8 @@
 
 from clouddrive.common.remote.provider import Provider
 from clouddrive.common.utils import Utils
+from clouddrive.common.exception import RequestException, ExceptionUtils
+from urllib2 import HTTPError
 
 
 class OneDrive(Provider):
@@ -40,17 +42,22 @@ class OneDrive(Provider):
         return { 'id' : me['id'], 'name' : me['displayName']}
     
     def get_drives(self, request_params={}, access_tokens={}):
-        response = self.get('/drives', request_params=request_params, access_tokens=access_tokens)
         drives = []
         drives_id_list  =[]
-        for drive in response['value']:
-            drives_id_list.append(drive['id'])
-            drives.append({
-                'id' : drive['id'],
-                'name' : Utils.get_safe_value(drive, 'name', ''),
-                'type' : drive['driveType']
-            })
-        
+        try:
+            response = self.get('/drives', request_params=request_params, access_tokens=access_tokens)
+            for drive in response['value']:
+                drives_id_list.append(drive['id'])
+                drives.append({
+                    'id' : drive['id'],
+                    'name' : Utils.get_safe_value(drive, 'name', ''),
+                    'type' : drive['driveType']
+                })
+        except RequestException as ex:
+            httpex = ExceptionUtils.extract_exception(ex, HTTPError)
+            if not httpex or httpex.code != 403:
+                raise ex
+            
         response = self.get('/me/drives', request_params=request_params, access_tokens=access_tokens)
         for drive in response['value']:
             if not drive['id'] in drives_id_list:
