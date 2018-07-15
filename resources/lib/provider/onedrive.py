@@ -27,8 +27,8 @@ import urllib
 class OneDrive(Provider):
     _extra_parameters = {'expand': 'thumbnails'}
     
-    def __init__(self):
-        super(OneDrive, self).__init__('onedrive')
+    def __init__(self, source_mode = False):
+        super(OneDrive, self).__init__('onedrive', source_mode)
         
     def _get_api_url(self):
         return 'https://graph.microsoft.com/v1.0'
