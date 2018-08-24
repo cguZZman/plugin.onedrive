@@ -213,6 +213,6 @@ class OneDrive(Provider):
     def changes(self):
         f = self.get(Utils.default(self.get_change_token(), '/drives/'+self._driveid+'/root/delta?token=latest'))
         extra_info = {}
-        changes = self.process_files(f, extra_info=extra_info)
+        changes = self.process_files(f, include_download_info=True, extra_info=extra_info)
         self.persist_change_token(Utils.get_safe_value(extra_info, 'change_token'))
         return changes
