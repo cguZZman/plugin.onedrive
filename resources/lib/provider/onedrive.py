@@ -37,7 +37,7 @@ class OneDrive(Provider):
         return None
     
     def get_account(self, request_params=None, access_tokens=None):
-        me = self.get('/me', request_params=request_params, access_tokens=access_tokens)
+        me = self.get('/me/', request_params=request_params, access_tokens=access_tokens)
         if not me:
             raise Exception('NoAccountInfo')
         return { 'id' : me['id'], 'name' : me['displayName']}
