@@ -1,1 +1,5 @@
 /.settings/
+/.idea/
+/env/
+*.pyc
+*.pyo
