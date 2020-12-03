@@ -40,12 +40,12 @@ class OneDriveAddon(CloudDriveAddon):
             if self._content_type == 'image':
                 path = 'special/photos'
                 params = {'action': '_slideshow', 'content_type': self._content_type, 'driveid': driveid, 'path': path}
-                context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.urlencode(params)+')')]
+                context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.parse.urlencode(params)+')')]
                 drive_folders.append({'name' : self._addon.getLocalizedString(32007), 'path' : path, 'context_options': context_options})
                 
                 path = 'special/cameraroll'
                 params['path'] = path
-                context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.urlencode(params)+')')]
+                context_options = [(self._common_addon.getLocalizedString(32032), 'RunPlugin('+self._addon_url + '?' + urllib.parse.urlencode(params)+')')]
                 drive_folders.append({'name' : self._addon.getLocalizedString(32008), 'path' : path, 'context_options': context_options})
             elif self._content_type == 'audio':
                 drive_folders.append({'name' : self._addon.getLocalizedString(32009), 'path' : 'special/music'})

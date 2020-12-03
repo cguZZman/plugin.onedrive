@@ -20,10 +20,9 @@
 from clouddrive.common.remote.provider import Provider
 from clouddrive.common.utils import Utils
 from clouddrive.common.exception import RequestException, ExceptionUtils
-from urllib2 import HTTPError
 
 import urllib
-import urllib2
+from urllib.error import HTTPError
 
 class OneDrive(Provider):
     _extra_parameters = {'expand': 'thumbnails'}
@@ -177,7 +176,7 @@ class OneDrive(Provider):
             url += item_driveid+'/items/' + item_id
         else:
             url += self._driveid
-        url += '/search(q=\''+urllib.quote(Utils.str(query))+'\')'
+        url += '/search(q=\''+urllib.parse.quote(Utils.str(query))+'\')'
         self._extra_parameters['filter'] = 'file ne null'
         files = self.get(url, parameters = self._extra_parameters)
         if self.cancel_operation():
@@ -187,7 +186,7 @@ class OneDrive(Provider):
     def get_subtitles(self, parent, name, item_driveid=None, include_download_info=False):
         item_driveid = Utils.default(item_driveid, self._driveid)
         subtitles = []
-        search_url = '/drives/'+item_driveid+'/items/' + parent + '/search(q=\''+urllib.quote(Utils.str(Utils.remove_extension(name)).replace("'","''"))+'\')'
+        search_url = '/drives/'+item_driveid+'/items/' + parent + '/search(q=\''+urllib.parse.quote(Utils.str(Utils.remove_extension(name)).replace("'","''"))+'\')'
         files = self.get(search_url)
         for f in files['value']:
             subtitle = self._extract_item(f, include_download_info)
@@ -225,6 +224,6 @@ class OneDrive(Provider):
         return changes
     
     def on_exception(self, request, e):
-        ex = ExceptionUtils.extract_exception(e, urllib2.HTTPError)
+        ex = ExceptionUtils.extract_exception(e, HTTPError)
         if ex and ex.code == 404:
             self.persist_change_token(None)
