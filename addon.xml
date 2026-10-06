@@ -11,6 +11,7 @@
 	<extension point="xbmc.addon.metadata">
 		<platform>all</platform>
 		<summary lang="en_GB">Microsoft OneDrive for KODI</summary>
+		<summary lang="sv_SE">Microsoft OneDrive för KODI</summary>
 		<description lang="en_GB">
 Play all your media from OneDrive including Videos, Music and Pictures.
  - Unlimited number of personal or business accounts.
@@ -30,6 +31,15 @@ Play all your media from OneDrive including Videos, Music and Pictures.
   - שימוש ב-OneDrive כמקור
   - תוכנית זו אינה מזוהה עם או בחסות מיקרוסופט.
 		</description>		
+		<description lang="sv_SE">
+Spela upp alla dina media från OneDrive, inklusive videor, musik och bilder.
+- Obegränsat antal personliga eller företagskonton.
+- Sök på hela din enhet.
+- Automatiskt uppdaterat bildspel.
+- Exportera dina videor till ditt bibliotek (.strm-filer)
+- Använd OneDrive som källa
+- Detta program är inte anslutet till eller sponsrat av Microsoft.
+		</description>
 		<license>GPL-3.0-or-later</license>
 		<source>https://github.com/cguZZman/plugin.onedrive</source>
 		<forum>https://github.com/cguZZman/plugin.onedrive/issues</forum>
