@@ -177,8 +177,9 @@ class OneDrive(Provider):
         else:
             url += self._driveid
         url += '/search(q=\''+urllib.parse.quote(Utils.str(query))+'\')'
-        self._extra_parameters['filter'] = 'file ne null'
-        files = self.get(url, parameters = self._extra_parameters)
+        # A copy: _extra_parameters is shared by every listing, which must not get the filter.
+        parameters = dict(self._extra_parameters, filter='file ne null')
+        files = self.get(url, parameters = parameters)
         if self.cancel_operation():
             return
         return self.process_files(files, on_items_page_completed)
