@@ -33,7 +33,6 @@ Play all your media from OneDrive including Videos, Music and Pictures.
 		<license>GPL-3.0-or-later</license>
 		<source>https://github.com/cguZZman/plugin.onedrive</source>
 		<forum>https://github.com/cguZZman/plugin.onedrive/issues</forum>
-		<website>https://addons.kodi.tv/show/plugin.onedrive</website>
 		<assets>
 			<icon>icon.png</icon>
 			<fanart>fanart.jpg</fanart>
