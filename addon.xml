@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.onedrive" name="OneDrive" version="2.4.4" provider-name="Carlos Guzman (cguZZman)">
+<addon id="plugin.onedrive" name="OneDrive" version="2.4.5" provider-name="Carlos Guzman (cguZZman)">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0" />
 		<import addon="script.module.clouddrive.common" version="1.5.4"/>
@@ -47,7 +47,10 @@ Spela upp alla dina medier från OneDrive, inklusive videor, musik och bilder.
 			<icon>icon.png</icon>
 			<fanart>fanart.jpg</fanart>
 		</assets>
-		<news>v2.4.4 released Oct 15, 2026:
+		<news>v2.4.5 released Oct 15, 2026:
+- Swedish translation (thanks to Daniel Nylander)
+
+v2.4.4 released Oct 15, 2026:
 - New icon and fanart
 
 v2.4.3 released Oct 12, 2026:
