@@ -58,3 +58,12 @@ class OneDriveProviderTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PathAddressTest(unittest.TestCase):
+    def test_names_in_paths_are_encoded(self):
+        from resources.lib.provider.onedrive import OneDrive
+        self.assertEqual(OneDrive._path_address('/'), 'root')
+        self.assertEqual(OneDrive._path_address('/Apps/Clipchamp Classic'), 'root:/Apps/Clipchamp%20Classic:')
+        self.assertEqual(OneDrive._path_address("/Movies/#1 It's 50%?"), "root:/Movies/%231%20It%27s%2050%25%3F:")
+        self.assertEqual(OneDrive._path_address('/Apps/Clipchamp%20Classic'), 'root:/Apps/Clipchamp%20Classic:', 'already encoded paths too')
