@@ -1,4 +1,9 @@
 # OneDrive KODI Add-on
+
+> **The old sign-in server closes on October 30, 2026.** `drive-login.herokuapp.com` stops working that day; the add-ons now sign in at **https://drive.signinserver.com**.
+> * **Kodi 19 or later:** if the add-on stops working, update it (Add-ons > My add-ons > Video add-ons > OneDrive > Update). Your accounts keep working; you won't need to sign in again.
+> * **Kodi 17 or 18:** no longer supported. Please update Kodi to version 19 or later.
+
 OneDrive for KODI
 
 Play all your media from Microsoft OneDrive including Videos, Music and Pictures. 
