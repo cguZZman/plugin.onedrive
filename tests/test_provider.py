@@ -91,10 +91,22 @@ class OneDriveProviderTest(unittest.TestCase):
         b = d.get_item(path='/Holidays/2026 Beach/b.mp4')
         self.assertEqual((b['id'], b['drive_id']), ('b', 'friend'))
 
+    def test_special_folders_are_listed_directly(self):
+        d = FakeOneDrive({'/drives/drv/special/photos/children': {'value': [item('p', 'p.jpg')]}})
+        self.assertEqual([i['id'] for i in d.get_folder_items(path='special/photos')], ['p'])
+        self.assertEqual(len(d.calls), 1)
+
     def test_missing_paths_are_still_not_found(self):
         d = FakeOneDrive({'/drives/drv/root:/Movies:': {'id': 'm', 'folder': {}, 'parentReference': {'driveId': 'drv'}}})
         with self.assertRaises(RequestException):
             d.get_folder_items(path='/Movies/Nothing')
+
+    def test_folder_signature_sees_replaced_pictures(self):
+        listing = lambda *files: FakeOneDrive({'/drives/drv/items/f/children': {'value': list(files)}}).folder_signature(item_id='f')
+        a, b = item('a', 'a.jpg'), item('b', 'b.jpg')
+        self.assertEqual(listing(a, b), listing(b, a), 'the order does not matter')
+        self.assertNotEqual(listing(a, b), listing(a, item('c', 'c.jpg')), 'one removed and another added: same count')
+        self.assertNotEqual(listing(a), listing(item('a', 'a.jpg', lastModifiedDateTime='2026-10-31T00:00:00Z')), 'replaced')
 
     def test_search_filter_does_not_leak_into_listings(self):
         d = FakeOneDrive({"/drives/drv/search(q='x')": {'value': []}, '/drives/drv/items/f/children': {'value': []}})

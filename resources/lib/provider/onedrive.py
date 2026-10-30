@@ -21,6 +21,7 @@ from clouddrive.common.remote.provider import Provider
 from clouddrive.common.utils import Utils
 from clouddrive.common.exception import RequestException, ExceptionUtils
 
+import hashlib
 import urllib
 from urllib.error import HTTPError
 
@@ -127,8 +128,9 @@ class OneDrive(Provider):
             files = self.get('/drives/'+item_driveid+'/items/' + item_id + '/children', parameters = self._extra_parameters)
         elif path == 'sharedWithMe' or path == 'recent':
             files = self.get('/drives/'+self._driveid+'/' + path)
-        elif self._path_address(path) == 'root':
-            files = self.get('/drives/'+self._driveid+'/root/children', parameters = self._extra_parameters)
+        elif self._path_address(path) == 'root' or not Utils.str(path).startswith('/'):
+            # The root, and special folders (special/photos...).
+            files = self.get('/drives/'+self._driveid+'/' + self._path_address(path) + '/children', parameters = self._extra_parameters)
         else:
             # By the folder's id: a path can't list a shortcut's contents.
             folder = self._get_by_path(path)
@@ -208,6 +210,15 @@ class OneDrive(Provider):
             }
         return item
     
+    def folder_signature(self, item_driveid=None, item_id=None, path=None):
+        # Changes when an item of the folder is added, removed or replaced: the auto-refreshed slideshow compares it.
+        # The child count missed replaced pictures, and an addition with a removal.
+        items = self.get_folder_items(item_driveid, item_id, path)
+        if items is None:
+            return None
+        entries = sorted('%s|%s|%s' % (i['id'], i['last_modified_date'], i['size']) for i in items)
+        return hashlib.sha1('\n'.join(entries).encode('utf-8')).hexdigest()
+
     def search(self, query, item_driveid=None, item_id=None, on_items_page_completed=None):
         item_driveid = Utils.default(item_driveid, self._driveid)
         url = '/drives/'
