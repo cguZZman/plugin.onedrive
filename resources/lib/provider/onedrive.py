@@ -43,24 +43,25 @@ class OneDrive(Provider):
         return { 'id' : me['id'], 'name' : me['displayName']}
     
     def get_drives(self, request_params=None, access_tokens=None):
-        drives = []
-        drives_id_list  =[]
+        listed = []
         try:
-            response = self.get('/drives', request_params=request_params, access_tokens=access_tokens)
-            for drive in response['value']:
-                drives_id_list.append(drive['id'])
-                drives.append({
-                    'id' : drive['id'],
-                    'name' : Utils.get_safe_value(drive, 'name', ''),
-                    'type' : drive['driveType']
-                })
+            listed.extend(self.get('/drives', request_params=request_params, access_tokens=access_tokens)['value'])
         except RequestException as ex:
             httpex = ExceptionUtils.extract_exception(ex, HTTPError)
             if not httpex or httpex.code != 403:
                 raise ex
-            
-        response = self.get('/me/drives', request_params=request_params, access_tokens=access_tokens)
-        for drive in response['value']:
+        listed.extend(self.get('/me/drives', request_params=request_params, access_tokens=access_tokens)['value'])
+        # Personal accounts moved to Microsoft's new storage also list system drives (ODCMetadataArchive,
+        # Bundles_..., GUIDs), and Bundles_... has the default drive's id. Their only real drive is the default one.
+        default_drive = self.get('/me/drive', request_params=request_params, access_tokens=access_tokens)
+        default_driveid = Utils.get_safe_value(default_drive, 'id')
+        drives = []
+        drives_id_list = []
+        for drive in listed:
+            if drive['driveType'] == 'personal' and default_driveid:
+                if drive['id'] != default_driveid:
+                    continue
+                drive = default_drive
             if not drive['id'] in drives_id_list:
                 drives_id_list.append(drive['id'])
                 drives.append({

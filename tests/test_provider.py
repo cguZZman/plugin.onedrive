@@ -48,6 +48,22 @@ class OneDriveProviderTest(unittest.TestCase):
         d = FakeOneDrive({'/drives/drv/sharedWithMe': {'value': [shared]}})
         self.assertEqual(d.get_folder_items(path='sharedWithMe')[0]['id'], 'remote')
 
+    def test_personal_accounts_keep_only_the_default_drive(self):
+        drive = lambda drive_id, name: {'id': drive_id, 'name': name, 'driveType': 'personal'}
+        # As Graph answers for a migrated account: both lists have the system drives, one with the default drive's id.
+        listed = {'value': [drive('guid', 'AEEE102E-0000'), drive('main', 'Bundles_b'), drive('main', 'OneDrive'),
+                            drive('archive', 'ODCMetadataArchive')]}
+        d = FakeOneDrive({'/drives': listed, '/me/drives': listed, '/me/drive': drive('main', 'OneDrive')})
+        self.assertEqual(d.get_drives(), [{'id': 'main', 'name': 'OneDrive', 'type': 'personal'}])
+
+    def test_business_accounts_keep_every_drive(self):
+        drive = lambda drive_id, drive_type: {'id': drive_id, 'name': drive_id, 'driveType': drive_type}
+        d = FakeOneDrive({
+            '/drives': {'value': [drive('library', 'documentLibrary')]},
+            '/me/drive': drive('work', 'business'),
+            '/me/drives': {'value': [drive('work', 'business'), drive('other', 'business')]}})
+        self.assertEqual([x['id'] for x in d.get_drives()], ['library', 'work', 'other'])
+
     def test_search_filter_does_not_leak_into_listings(self):
         d = FakeOneDrive({"/drives/drv/search(q='x')": {'value': []}, '/drives/drv/items/f/children': {'value': []}})
         d.search('x')
