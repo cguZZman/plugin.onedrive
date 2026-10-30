@@ -1,7 +1,9 @@
 import unittest
+from urllib.error import HTTPError
 
 import stubs  # noqa: F401
 import kodistubs
+from clouddrive.common.exception import RequestException
 from resources.lib.provider.onedrive import OneDrive
 
 kodistubs.use_temp_profile()
@@ -24,6 +26,8 @@ class FakeOneDrive(OneDrive):
 
     def get(self, url, parameters=None, **kwargs):
         self.calls.append((url, dict(parameters or {})))
+        if url not in self.pages:
+            raise RequestException('Not found', HTTPError(url, 404, 'Not found', None, None), url, None)
         return self.pages[url]
 
 
@@ -63,6 +67,34 @@ class OneDriveProviderTest(unittest.TestCase):
             '/me/drive': drive('work', 'business'),
             '/me/drives': {'value': [drive('work', 'business'), drive('other', 'business')]}})
         self.assertEqual([x['id'] for x in d.get_drives()], ['library', 'work', 'other'])
+
+    def test_shortcuts_to_shared_folders_keep_their_name(self):
+        # "Add to My files": Graph answers the sharer's folder in remoteItem, without a name.
+        remote = {'id': 'shared', 'folder': {'childCount': 2}, 'parentReference': {'driveId': 'friend'}}
+        d = FakeOneDrive({'/drives/drv/root/children': {'value': [{'id': 'link', 'name': 'Holidays', 'remoteItem': remote}]}})
+        [folder] = d.get_folder_items(path='/')
+        self.assertEqual((folder['id'], folder['name'], folder['drive_id']), ('shared', 'Holidays', 'friend'))
+        self.assertIn('folder', folder)
+
+    def test_paths_continue_through_shortcuts(self):
+        # Source mode lists by path: the shortcut is found by path, what's inside it by id in the sharer's drive.
+        remote = {'id': 'shared', 'folder': {}, 'parentReference': {'driveId': 'friend'}}
+        beach = {'id': 'beach', 'name': '2026 Beach', 'folder': {}, 'parentReference': {'driveId': 'friend', 'id': 'shared'}}
+        d = FakeOneDrive({
+            '/drives/drv/root:/Holidays:': {'id': 'link', 'name': 'Holidays', 'parentReference': {'driveId': 'drv'}, 'remoteItem': remote},
+            '/drives/friend/items/shared/children': {'value': [item('a', 'a.mp4')]},
+            '/drives/friend/items/shared:/2026%20Beach:': beach,
+            '/drives/friend/items/beach/children': {'value': [item('b', 'b.mp4')]},
+            '/drives/friend/items/shared:/2026%20Beach/b.mp4:': item('b', 'b.mp4', parentReference={'driveId': 'friend', 'id': 'beach'})})
+        self.assertEqual([i['id'] for i in d.get_folder_items(path='/Holidays')], ['a'])
+        self.assertEqual([i['id'] for i in d.get_folder_items(path='/Holidays/2026 Beach')], ['b'])
+        b = d.get_item(path='/Holidays/2026 Beach/b.mp4')
+        self.assertEqual((b['id'], b['drive_id']), ('b', 'friend'))
+
+    def test_missing_paths_are_still_not_found(self):
+        d = FakeOneDrive({'/drives/drv/root:/Movies:': {'id': 'm', 'folder': {}, 'parentReference': {'driveId': 'drv'}}})
+        with self.assertRaises(RequestException):
+            d.get_folder_items(path='/Movies/Nothing')
 
     def test_search_filter_does_not_leak_into_listings(self):
         d = FakeOneDrive({"/drives/drv/search(q='x')": {'value': []}, '/drives/drv/items/f/children': {'value': []}})

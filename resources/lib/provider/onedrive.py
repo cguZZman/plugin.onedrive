@@ -91,14 +91,48 @@ class OneDrive(Provider):
             return 'root:' + urllib.parse.quote(urllib.parse.unquote(Utils.str(path)), safe='/') + ':'
         return path
 
+    @staticmethod
+    def _remote(f):
+        # A folder shared with the user and added to their files (a shortcut) is the sharer's item in remoteItem,
+        # which may come without a name: the shortcut's name is the one the user sees.
+        remote = Utils.get_safe_value(f, 'remoteItem')
+        if not remote:
+            return f
+        remote = dict(remote)
+        if not remote.get('name'):
+            remote['name'] = Utils.get_safe_value(f, 'name', '')
+        return remote
+
+    def _get_by_path(self, path):
+        # Graph can't reach items inside a shortcut by path: on a 404, the path is followed up to the shortcut and
+        # continued from the shared folder, in the sharer's drive.
+        try:
+            return self._remote(self.get('/drives/'+self._driveid+'/' + self._path_address(path), parameters = self._extra_parameters))
+        except RequestException as ex:
+            httpex = ExceptionUtils.extract_exception(ex, HTTPError)
+            if not httpex or httpex.code != 404:
+                raise ex
+            parts = [part for part in Utils.str(path).split('/') if part]
+            for index in range(1, len(parts)):
+                f = self.get('/drives/'+self._driveid+'/' + self._path_address('/' + '/'.join(parts[:index])), parameters = self._extra_parameters)
+                if 'remoteItem' in f:
+                    remote = f['remoteItem']
+                    rest = urllib.parse.quote(urllib.parse.unquote('/'.join(parts[index:])), safe='/')
+                    return self._remote(self.get('/drives/'+remote['parentReference']['driveId']+'/items/'+remote['id']+':/'+rest+':', parameters = self._extra_parameters))
+            raise ex
+
     def get_folder_items(self, item_driveid=None, item_id=None, path=None, on_items_page_completed=None, include_download_info=False, on_before_add_item=None):
         item_driveid = Utils.default(item_driveid, self._driveid)
         if item_id:
             files = self.get('/drives/'+item_driveid+'/items/' + item_id + '/children', parameters = self._extra_parameters)
         elif path == 'sharedWithMe' or path == 'recent':
             files = self.get('/drives/'+self._driveid+'/' + path)
+        elif self._path_address(path) == 'root':
+            files = self.get('/drives/'+self._driveid+'/root/children', parameters = self._extra_parameters)
         else:
-            files = self.get('/drives/'+self._driveid+'/' + self._path_address(path) + '/children', parameters = self._extra_parameters)
+            # By the folder's id: a path can't list a shortcut's contents.
+            folder = self._get_by_path(path)
+            files = self.get('/drives/'+folder['parentReference']['driveId']+'/items/' + folder['id'] + '/children', parameters = self._extra_parameters)
         if self.cancel_operation():
             return
         return self.process_files(files, on_items_page_completed, include_download_info, on_before_add_item=on_before_add_item)
@@ -106,8 +140,7 @@ class OneDrive(Provider):
     def process_files(self, files, on_items_page_completed=None, include_download_info=False, extra_info=None, on_before_add_item=None):
         items = []
         for f in files['value']:
-            f = Utils.get_safe_value(f, 'remoteItem', f)
-            item = self._extract_item(f, include_download_info)
+            item = self._extract_item(self._remote(f), include_download_info)
             if on_before_add_item:
                 on_before_add_item(item)
             items.append(item)
@@ -208,11 +241,11 @@ class OneDrive(Provider):
         elif path == 'sharedWithMe' or path == 'recent':
             return
         else:
-            f = self.get('/drives/'+self._driveid+'/' + self._path_address(path), parameters = self._extra_parameters)
+            f = self._get_by_path(path)
         
-        item = self._extract_item(f, include_download_info)
+        item = self._extract_item(self._remote(f), include_download_info)
         if find_subtitles:
-            subtitles = self.get_subtitles(item['parent'], item['name'], item_driveid, include_download_info)
+            subtitles = self.get_subtitles(item['parent'], item['name'], Utils.default(item['drive_id'], item_driveid), include_download_info)
             if subtitles:
                 item['subtitles'] = subtitles
         return item
