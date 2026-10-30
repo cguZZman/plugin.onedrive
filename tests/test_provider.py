@@ -108,6 +108,14 @@ class OneDriveProviderTest(unittest.TestCase):
         self.assertNotEqual(listing(a, b), listing(a, item('c', 'c.jpg')), 'one removed and another added: same count')
         self.assertNotEqual(listing(a), listing(item('a', 'a.jpg', lastModifiedDateTime='2026-10-31T00:00:00Z')), 'replaced')
 
+    def test_subtitles_come_from_the_video_folder(self):
+        d = FakeOneDrive({
+            '/drives/drv/items/parent/children': {'value': [item('v', "It's.mkv"), item('s1', "It's.srt"), item('s2', "It's.EN.SRT")],
+                                                  '@odata.nextLink': 'https://graph/next'},
+            'https://graph/next': {'value': [item('x', "It's 2.srt"), item('n', "It's.nfo"), item('s3', "it's.forced.ass")]}})
+        self.assertEqual([s['id'] for s in d.get_subtitles('parent', "It's.mkv")], ['s1', 's2', 's3'])
+        self.assertNotIn('search', ' '.join(c[0] for c in d.calls))
+
     def test_search_filter_does_not_leak_into_listings(self):
         d = FakeOneDrive({"/drives/drv/search(q='x')": {'value': []}, '/drives/drv/items/f/children': {'value': []}})
         d.search('x')

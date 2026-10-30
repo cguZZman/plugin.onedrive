@@ -235,14 +235,15 @@ class OneDrive(Provider):
         return self.process_files(files, on_items_page_completed)
     
     def get_subtitles(self, parent, name, item_driveid=None, include_download_info=False):
+        # Subtitles next to the video, named after it (Movie.srt, Movie.en.srt), from the folder's listing: OneDrive's
+        # search didn't find them with some business accounts (#49).
         item_driveid = Utils.default(item_driveid, self._driveid)
+        stem = Utils.str(Utils.remove_extension(name)).lower()
+        files = self.get('/drives/'+item_driveid+'/items/' + parent + '/children')
         subtitles = []
-        search_url = '/drives/'+item_driveid+'/items/' + parent + '/search(q=\''+urllib.parse.quote(Utils.str(Utils.remove_extension(name)).replace("'","''"))+'\')'
-        files = self.get(search_url)
-        for f in files['value']:
-            subtitle = self._extract_item(f, include_download_info)
-            if subtitle['name_extension'].lower() in ('srt','idx','sub','sbv','ass','ssa','smi'):
-                subtitles.append(subtitle)
+        for item in self.process_files(files, include_download_info=include_download_info) or []:
+            if item['name_extension'].lower() in ('srt','idx','sub','sbv','ass','ssa','smi') and Utils.str(item['name']).lower().startswith(stem + '.'):
+                subtitles.append(item)
         return subtitles
                 
     def get_item(self, item_driveid=None, item_id=None, path=None, find_subtitles=False, include_download_info=False):
