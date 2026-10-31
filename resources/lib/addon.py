@@ -54,10 +54,6 @@ class OneDriveAddon(CloudDriveAddon):
             drive_folders.append({'name' : self._common_addon.getLocalizedString(32058), 'path' : 'sharedWithMe'})
         return drive_folders
 
-    def new_change_token_slideshow(self, change_token, driveid, item_driveid=None, item_id=None, path=None):
-        self._provider.configure(self._account_manager, driveid)
-        return self._provider.folder_signature(item_driveid, item_id, path)
-
     def _rename_action(self):
         if self._action == 'open_drive_folder':
             self._addon_params['path'] = Utils.get_safe_value(self._addon_params, 'folder')

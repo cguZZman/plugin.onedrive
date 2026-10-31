@@ -112,9 +112,47 @@ class OneDriveProviderTest(unittest.TestCase):
         d = FakeOneDrive({
             '/drives/drv/items/parent/children': {'value': [item('v', "It's.mkv"), item('s1', "It's.srt"), item('s2', "It's.EN.SRT")],
                                                   '@odata.nextLink': 'https://graph/next'},
-            'https://graph/next': {'value': [item('x', "It's 2.srt"), item('n', "It's.nfo"), item('s3', "it's.forced.ass")]}})
-        self.assertEqual([s['id'] for s in d.get_subtitles('parent', "It's.mkv")], ['s1', 's2', 's3'])
+            'https://graph/next': {'value': [item('x', "It's 2.srt"), item('n', "It's.nfo"), item('s3', "it's.forced.ass"), item('s4', "It's.vtt")]}})
+        self.assertEqual([s['id'] for s in d.get_subtitles('parent', "It's.mkv")], ['s1', 's2', 's3', 's4'])
         self.assertNotIn('search', ' '.join(c[0] for c in d.calls))
+
+    def test_folders_are_listed_a_page_at_a_time(self):
+        next_link = 'https://graph.microsoft.com/v1.0/drives/drv/items/f/children?$skiptoken=x'
+        d = FakeOneDrive({
+            '/drives/drv/items/f/children': {'value': [item('a', 'a.mp4')], '@odata.nextLink': next_link},
+            next_link: {'value': [item('b', 'b.mp4')]}})
+        items, next_page_token = d.get_folder_page(item_id='f', page_size=500)
+        self.assertEqual(([i['id'] for i in items], next_page_token), (['a'], next_link))
+        self.assertEqual(d.calls[0][1], {'expand': 'thumbnails', 'top': 500, 'orderby': 'name'})
+        items, next_page_token = d.get_folder_page(item_id='f', page_size=500, page_token=next_link)
+        self.assertEqual(([i['id'] for i in items], next_page_token), (['b'], None))
+        self.assertEqual(len(d.calls), 2)
+
+    def test_page_tokens_only_go_to_graph(self):
+        # The token comes from a plugin URL: any other address would receive the account's access token.
+        d = FakeOneDrive({})
+        for token in ('https://attacker.example/x', 'https://graph.microsoft.com.attacker.example/v1.0/x', '/me/drive'):
+            with self.assertRaises(Exception):
+                d.get_folder_page(item_id='f', page_token=token)
+        self.assertEqual(d.calls, [])
+
+    def test_pages_without_sorting_when_the_drive_refuses_it(self):
+        class Unsorted(FakeOneDrive):
+            def get(self, url, parameters=None, **kwargs):
+                if parameters and 'orderby' in parameters:
+                    self.calls.append((url, dict(parameters)))
+                    raise RequestException('Bad request', HTTPError(url, 400, 'Bad request', None, None), url, None)
+                return super(Unsorted, self).get(url, parameters, **kwargs)
+        d = Unsorted({'/drives/drv/root/children': {'value': [item('a', 'a.mp4')]}})
+        items, next_page_token = d.get_folder_page(path='/', page_size=500)
+        self.assertEqual(([i['id'] for i in items], next_page_token), (['a'], None))
+        self.assertNotIn('orderby', d.calls[-1][1])
+
+    def test_shared_with_me_and_recent_are_not_paged(self):
+        d = FakeOneDrive({'/drives/drv/recent': {'value': [item('a', 'a.mp4')], '@odata.nextLink': 'https://graph/next'},
+                          'https://graph/next': {'value': [item('b', 'b.mp4')]}})
+        items, next_page_token = d.get_folder_page(path='recent', page_size=1)
+        self.assertEqual(([i['id'] for i in items], next_page_token), (['a', 'b'], None))
 
     def test_search_filter_does_not_leak_into_listings(self):
         d = FakeOneDrive({"/drives/drv/search(q='x')": {'value': []}, '/drives/drv/items/f/children': {'value': []}})

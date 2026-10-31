@@ -103,3 +103,7 @@ msgstr ""
 msgctxt "#32069"
 msgid "     Source server port  -  http://localhost:<port>/source"
 msgstr ""
+
+msgctxt "#32070"
+msgid "Items per page (0 = the whole folder)"
+msgstr ""

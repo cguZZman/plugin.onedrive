@@ -21,11 +21,11 @@ from clouddrive.common.remote.provider import Provider
 from clouddrive.common.utils import Utils
 from clouddrive.common.exception import RequestException, ExceptionUtils
 
-import hashlib
 import urllib
 from urllib.error import HTTPError
 
 class OneDrive(Provider):
+    folder_paging_supported = True
     _extra_parameters = {'expand': 'thumbnails'}
     
     def __init__(self, source_mode = False):
@@ -122,22 +122,52 @@ class OneDrive(Provider):
                     return self._remote(self.get('/drives/'+remote['parentReference']['driveId']+'/items/'+remote['id']+':/'+rest+':', parameters = self._extra_parameters))
             raise ex
 
-    def get_folder_items(self, item_driveid=None, item_id=None, path=None, on_items_page_completed=None, include_download_info=False, on_before_add_item=None):
+    def _children_url(self, item_driveid, item_id, path):
         item_driveid = Utils.default(item_driveid, self._driveid)
         if item_id:
-            files = self.get('/drives/'+item_driveid+'/items/' + item_id + '/children', parameters = self._extra_parameters)
-        elif path == 'sharedWithMe' or path == 'recent':
-            files = self.get('/drives/'+self._driveid+'/' + path)
-        elif self._path_address(path) == 'root' or not Utils.str(path).startswith('/'):
+            return '/drives/'+item_driveid+'/items/' + item_id + '/children'
+        if self._path_address(path) == 'root' or not Utils.str(path).startswith('/'):
             # The root, and special folders (special/photos...).
-            files = self.get('/drives/'+self._driveid+'/' + self._path_address(path) + '/children', parameters = self._extra_parameters)
+            return '/drives/'+self._driveid+'/' + self._path_address(path) + '/children'
+        # By the folder's id: a path can't list a shortcut's contents.
+        folder = self._get_by_path(path)
+        return '/drives/'+folder['parentReference']['driveId']+'/items/' + folder['id'] + '/children'
+
+    def get_folder_items(self, item_driveid=None, item_id=None, path=None, on_items_page_completed=None, include_download_info=False, on_before_add_item=None):
+        if path == 'sharedWithMe' or path == 'recent':
+            files = self.get('/drives/'+self._driveid+'/' + path)
         else:
-            # By the folder's id: a path can't list a shortcut's contents.
-            folder = self._get_by_path(path)
-            files = self.get('/drives/'+folder['parentReference']['driveId']+'/items/' + folder['id'] + '/children', parameters = self._extra_parameters)
+            files = self.get(self._children_url(item_driveid, item_id, path), parameters = self._extra_parameters)
         if self.cancel_operation():
             return
         return self.process_files(files, on_items_page_completed, include_download_info, on_before_add_item=on_before_add_item)
+
+    def get_folder_page(self, item_driveid=None, item_id=None, path=None, page_size=500, page_token=None, on_items_page_completed=None):
+        if path == 'sharedWithMe' or path == 'recent':
+            # Not paged: listed whole, as before.
+            items = self.get_folder_items(item_driveid, item_id, path, on_items_page_completed)
+            return None if items is None else (items, None)
+        if page_token:
+            # Graph's link to the next page. It comes from a plugin URL: the account's token goes only to Graph.
+            if not page_token.startswith(self._get_api_url() + '/'):
+                raise Exception('Invalid page token')
+            files = self.get(page_token)
+        else:
+            url = self._children_url(item_driveid, item_id, path)
+            parameters = dict(self._extra_parameters, top=page_size, orderby='name')
+            try:
+                files = self.get(url, parameters = parameters)
+            except RequestException as ex:
+                # In case a drive can't sort its folders: pages in Graph's order.
+                httpex = ExceptionUtils.extract_exception(ex, HTTPError)
+                if not httpex or httpex.code != 400:
+                    raise ex
+                del parameters['orderby']
+                files = self.get(url, parameters = parameters)
+        if self.cancel_operation():
+            return
+        next_page_token = files.pop('@odata.nextLink', None)
+        return self.process_files(files, on_items_page_completed), next_page_token
     
     def process_files(self, files, on_items_page_completed=None, include_download_info=False, extra_info=None, on_before_add_item=None):
         items = []
@@ -210,15 +240,6 @@ class OneDrive(Provider):
             }
         return item
     
-    def folder_signature(self, item_driveid=None, item_id=None, path=None):
-        # Changes when an item of the folder is added, removed or replaced: the auto-refreshed slideshow compares it.
-        # The child count missed replaced pictures, and an addition with a removal.
-        items = self.get_folder_items(item_driveid, item_id, path)
-        if items is None:
-            return None
-        entries = sorted('%s|%s|%s' % (i['id'], i['last_modified_date'], i['size']) for i in items)
-        return hashlib.sha1('\n'.join(entries).encode('utf-8')).hexdigest()
-
     def search(self, query, item_driveid=None, item_id=None, on_items_page_completed=None):
         item_driveid = Utils.default(item_driveid, self._driveid)
         url = '/drives/'
@@ -242,7 +263,7 @@ class OneDrive(Provider):
         files = self.get('/drives/'+item_driveid+'/items/' + parent + '/children')
         subtitles = []
         for item in self.process_files(files, include_download_info=include_download_info) or []:
-            if item['name_extension'].lower() in ('srt','idx','sub','sbv','ass','ssa','smi') and Utils.str(item['name']).lower().startswith(stem + '.'):
+            if item['name_extension'].lower() in ('srt','idx','sub','sbv','ass','ssa','smi','vtt') and Utils.str(item['name']).lower().startswith(stem + '.'):
                 subtitles.append(item)
         return subtitles
                 
